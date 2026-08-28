@@ -1,5 +1,6 @@
 import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Link } from 'expo-router';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedIcon } from '@/components/animated-icon';
@@ -35,7 +36,7 @@ export default function HomeScreen() {
         <ThemedView style={styles.heroSection}>
           <AnimatedIcon />
           <ThemedText type="title" style={styles.title}>
-            Welcome Fernanda
+            Welcome 
           </ThemedText>
         </ThemedView>
 
@@ -54,6 +55,12 @@ export default function HomeScreen() {
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}
           />
         </ThemedView>
+
+        <Link href="/menu" asChild>
+          <Pressable style={styles.menuButton}>
+            <Text style={styles.menuButtonText}>Ir al Menú</Text>
+          </Pressable>
+        </Link>
 
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
@@ -94,5 +101,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
+  },
+  menuButton: {
+    backgroundColor: '#2F6F5E',
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Spacing.four,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  menuButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
