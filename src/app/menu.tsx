@@ -1,15 +1,29 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, SafeAreaView } from 'react-native';
-import { MenuItem, MenuItemDraft } from '../types/menu';
-import { mockCategories, mockMenuItems } from '../data/mockMenu';
+import { useState } from 'react';
+import { FlatList, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import ProductCard from '../components/menu/ProductCard';
 import ProductDetailModal from '../components/menu/ProductDetailModal';
 import ProductFormModal from '../components/menu/ProductFormModal';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../constants/menuTheme';
+import { mockCategories, mockMenuItems } from '../data/mockMenu';
+import { MenuItem, MenuItemDraft } from '../types/menu';
 import { confirmAction } from '../utils/crossPlatformConfirm';
 
 export default function MenuScreen() {
   const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
+  const [searchText, setSearchText] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const filteredItems = items.filter((item) => {
+    const matchesSearch = item.name
+      .toLowerCase()
+      .includes(searchText.toLowerCase());
+
+    const matchesCategory =
+      selectedCategory === 'Todos' ||
+      item.categoryId === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+      
+});
 
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -56,9 +70,44 @@ export default function MenuScreen() {
         <Text style={styles.headerTitle}>Menú</Text>
         <Text style={styles.headerSubtitle}>{items.length} productos</Text>
       </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Buscar productos.."
+        value={searchText}
+        onChangeText={setSearchText}
+      />
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesContainer}
+        contentContainerStyle={styles.categoriesContent}
+      >
+        <Pressable
+          style={styles.categoryButton}
+          onPress={() => setSelectedCategory('Todos')}
+        >
+          <Text style={styles.categoryText}>Todos</Text>
+        </Pressable>
+
+        {mockCategories.map((category) => (
+          <Pressable
+            key={category.id}
+            style={styles.categoryButton}
+            onPress={() => setSelectedCategory(category.id)}
+          >
+
+            <Text style={styles.categoryText}>
+              {category.emoji} {category.label}
+            </Text>
+
+          </Pressable>
+        ))}
+
+      </ScrollView>
+ 
       <FlatList
-        data={items}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.grid}
@@ -126,4 +175,36 @@ const styles = StyleSheet.create({
     color: menuColors.textSecondary,
     textAlign: 'center',
   },
+  searchInput: {
+  marginHorizontal: menuSpacing.lg,
+  marginTop: menuSpacing.md,
+  marginBottom: menuSpacing.md,
+  paddingHorizontal: menuSpacing.md,
+  paddingVertical: menuSpacing.sm,
+  borderWidth: 1,
+  borderColor: menuColors.textSecondary,
+  borderRadius: menuRadius.md,
+  backgroundColor: menuColors.background,
+  color: menuColors.textPrimary,
+},
+categoriesContainer: {
+  flexGrow: 0,
+  paddingHorizontal: menuSpacing.lg,
+  marginBottom: menuSpacing.lg,
+},
+categoriesContent: {
+  paddingVertical:4,
+},
+categoryButton: {
+  paddingHorizontal: menuSpacing.md,
+  height: 42,
+  justifyContent: 'center',
+  borderRadius: menuRadius.md,
+  backgroundColor: '#E5E5E5',
+  marginRight: 16,
+},
+categoryText: {
+  ...menuTypography.body,
+  color: menuColors.textPrimary,
+}
 });
