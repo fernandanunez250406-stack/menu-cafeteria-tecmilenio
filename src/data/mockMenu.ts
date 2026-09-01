@@ -21,6 +21,7 @@ export const mockMenuItems: MenuItem[] = [
       { label: 'Calorías', value: '190 kcal' },
       { label: 'Leche', value: 'Entera (opción deslactosada)' },
     ],
+    available: false
   },
   {
     id: 'item-2',
@@ -33,6 +34,7 @@ export const mockMenuItems: MenuItem[] = [
       { label: 'Tamaño', value: '10 oz' },
       { label: 'Calorías', value: '120 kcal' },
     ],
+    available: true
   },
   {
     id: 'item-3',
@@ -45,6 +47,7 @@ export const mockMenuItems: MenuItem[] = [
       { label: 'Tamaño', value: '16 oz' },
       { label: 'Calorías', value: '320 kcal' },
     ],
+    available: true
   },
   {
     id: 'item-4',
@@ -54,6 +57,7 @@ export const mockMenuItems: MenuItem[] = [
     emoji: '🍋',
     description: 'Limonada natural con hojas de menta fresca y un toque de miel.',
     specs: [{ label: 'Tamaño', value: '16 oz' }],
+    available: true
   },
   {
     id: 'item-5',
@@ -63,6 +67,7 @@ export const mockMenuItems: MenuItem[] = [
     emoji: '🥐',
     description: 'Hojaldrado, horneado en el momento, con mantequilla real.',
     specs: [{ label: 'Calorías', value: '270 kcal' }],
+    available: true
   },
   {
     id: 'item-6',
@@ -75,5 +80,6 @@ export const mockMenuItems: MenuItem[] = [
       { label: 'Calorías', value: '480 kcal' },
       { label: 'Alérgenos', value: 'Gluten' },
     ],
+    available: true
   },
 ];

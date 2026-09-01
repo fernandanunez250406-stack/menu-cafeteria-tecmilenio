@@ -31,9 +31,23 @@ export default function MenuScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
+  const openCreateForm = () => {
+    setEditingItem(null);
+    setFormVisible(true);
+  };
+
   const openDetail = (item: MenuItem) => {
     setDetailItem(item);
     setDetailVisible(true);
+  };
+  const toggleAvailability = (item: MenuItem) => {
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === item.id
+          ? { ...it, available: !it.available }
+          : it
+      )
+    );
   };
 
   const openEditForm = (item: MenuItem) => {
@@ -67,8 +81,20 @@ export default function MenuScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Menú</Text>
-        <Text style={styles.headerSubtitle}>{items.length} productos</Text>
+        <View>
+          <Text style={styles.headerTitle}>Menú</Text>
+          <Text style={styles.headerSubtitle}>
+            {items.length} productos
+          </Text>
+        </View>
+
+        <Pressable
+          style={styles.addButton}
+          onPress={openCreateForm}
+        >
+
+          <Text style={styles.addButtonText}> + Agregar</Text>
+        </Pressable>
       </View>
       <TextInput
         style={styles.searchInput}
@@ -111,7 +137,13 @@ export default function MenuScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.grid}
-        renderItem={({ item }) => <ProductCard item={item} onPress={() => openDetail(item)} />}
+        renderItem={({ item }) => (
+          <ProductCard 
+            item={item} 
+            onPress={() => openDetail(item)}
+            onToggleAvailability={() => toggleAvailability(item)}
+            />
+          )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No hay productos aquí todavía</Text>
@@ -146,6 +178,9 @@ const styles = StyleSheet.create({
   headerRow: {
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   headerTitle: {
     ...menuTypography.title,
@@ -206,5 +241,19 @@ categoryButton: {
 categoryText: {
   ...menuTypography.body,
   color: menuColors.textPrimary,
-}
+},
+addButton: {
+  backgroundColor: menuColors.textPrimary,
+  paddingHorizontal: menuSpacing.md,
+  height: 42,
+  borderRadius: menuRadius.md,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+addButtonText: {
+  ...menuTypography.body,
+  color: menuColors.background,
+  fontWeight: 'bold',
+},
 });

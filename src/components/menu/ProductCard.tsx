@@ -1,32 +1,61 @@
-import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
-import { MenuItem } from '../../types/menu';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
+import { MenuItem } from '../../types/menu';
 
 type Props = {
   item: MenuItem;
   onPress: () => void;
+  onToggleAvailability: () => void;
 };
 
-export default function ProductCard({ item, onPress }: Props) {
+export default function ProductCard({ 
+  item,
+  onPress,
+  onToggleAvailability
+}: Props) {
   return (
+      <View style={styles.card}>
+    
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]}
+      style={({ pressed }) => [
+        styles.productContent,
+        pressed && { transform: [{ scale: 0.98 }] },
+      ]}
     >
       <View style={styles.imageWrap}>
         <Text style={styles.emoji}>{item.emoji}</Text>
+
         <View style={styles.priceSticker}>
           <Text style={styles.priceText}>${item.price}</Text>
         </View>
       </View>
+
       <Text style={styles.name} numberOfLines={1}>
         {item.name}
       </Text>
+
       <Text style={styles.description} numberOfLines={2}>
         {item.description}
       </Text>
     </Pressable>
+
+    {/* BOTÓN DE DISPONIBILIDAD */}
+    <Pressable
+      style={[
+        styles.availabilityButton,
+        !item.available && styles.unavailableButton,
+      ]}
+      onPress={onToggleAvailability}
+    >
+      <Text style={styles.availabilityText}>
+        {item.available ? 'Disponible' : 'No disponible'}
+      </Text>
+    </Pressable>
+
+  </View>
+    
+    
   );
 }
 
@@ -79,4 +108,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: menuColors.textSecondary,
   },
+  availabilityButton: {
+  marginTop: menuSpacing.sm,
+  paddingVertical: 8,
+  borderRadius: menuRadius.md,
+  alignItems: 'center',
+  backgroundColor: '#4CAF50',
+},
+
+unavailableButton: {
+  backgroundColor: '#E53935',
+},
+
+availabilityText: {
+  color: '#FFFFFF',
+  fontWeight: 'bold',
+  fontSize: 12,
+},
+productContent: {
+  flex: 1,
+},
 });

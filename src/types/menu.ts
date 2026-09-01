@@ -17,6 +17,7 @@ export type MenuItem = {
   emoji: string;
   description: string;
   specs: MenuSpec[];
+  available: boolean;
 };
 
 // Datos que llena el formulario de alta/edición (sin id, se genera aparte)
