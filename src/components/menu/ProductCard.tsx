@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Image, Pressable, Text, View, StyleSheet } from 'react-native';
 import { MenuItem } from '../../types/menu';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
 
@@ -15,7 +15,11 @@ export default function ProductCard({ item, onPress }: Props) {
       style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]}
     >
       <View style={styles.imageWrap}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
+        {item.photoUri ? (
+          <Image source={{ uri: item.photoUri }} style={styles.photo} />
+        ) : (
+          <Text style={styles.emoji}>{item.emoji}</Text>
+        )}
         <View style={styles.priceSticker}>
           <Text style={styles.priceText}>${item.price}</Text>
         </View>
@@ -55,6 +59,10 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 56,
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   priceSticker: {
     position: 'absolute',
