@@ -32,13 +32,23 @@ export default function MenuScreen() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   const openCreateForm = () => {
-  setEditingItem(null);
-  setFormVisible(true);
+    setEditingItem(null);
+    setFormVisible(true);
   };
   
+
   const openDetail = (item: MenuItem) => {
     setDetailItem(item);
     setDetailVisible(true);
+  };
+  const toggleAvailability = (item: MenuItem) => {
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === item.id
+          ? { ...it, available: !it.available }
+          : it
+      )
+    );
   };
 
   const openEditForm = (item: MenuItem) => {
@@ -79,12 +89,15 @@ export default function MenuScreen() {
           </Text>
         </View>
 
+
          <Pressable
           style={styles.addButton}
           onPress={openCreateForm}
           >
             <Text style={styles.addButtonText}>+ Agregar</Text>
           </Pressable>
+
+
       </View>
       <TextInput
         style={styles.searchInput}
@@ -127,7 +140,13 @@ export default function MenuScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.grid}
-        renderItem={({ item }) => <ProductCard item={item} onPress={() => openDetail(item)} />}
+        renderItem={({ item }) => (
+          <ProductCard 
+            item={item} 
+            onPress={() => openDetail(item)}
+            onToggleAvailability={() => toggleAvailability(item)}
+            />
+          )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No hay productos aquí todavía</Text>
@@ -163,7 +182,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
     flexDirection: 'row',
-    
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   headerTitle: {
     ...menuTypography.title,
