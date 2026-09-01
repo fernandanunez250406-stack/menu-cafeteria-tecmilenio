@@ -20,9 +20,9 @@ export default function MenuScreen() {
     const matchesCategory =
       selectedCategory === 'Todos' ||
       item.categoryId === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
-      
+
 });
 
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
@@ -32,10 +32,16 @@ export default function MenuScreen() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
   const openCreateForm = () => {
+<<<<<<< HEAD
     setEditingItem(null);
     setFormVisible(true);
   };
   
+=======
+  setEditingItem(null);
+  setFormVisible(true);
+  };
+>>>>>>> feature/fernanda
 
   const openDetail = (item: MenuItem) => {
     setDetailItem(item);
@@ -89,15 +95,21 @@ export default function MenuScreen() {
           </Text>
         </View>
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> feature/fernanda
          <Pressable
           style={styles.addButton}
           onPress={openCreateForm}
           >
             <Text style={styles.addButtonText}>+ Agregar</Text>
           </Pressable>
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> feature/fernanda
       </View>
       <TextInput
         style={styles.searchInput}
@@ -134,7 +146,7 @@ export default function MenuScreen() {
         ))}
 
       </ScrollView>
- 
+
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
@@ -183,7 +195,10 @@ const styles = StyleSheet.create({
     paddingTop: menuSpacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
+<<<<<<< HEAD
     alignItems: 'center'
+=======
+>>>>>>> feature/fernanda
   },
   headerTitle: {
     ...menuTypography.title,
@@ -214,6 +229,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   searchInput: {
+<<<<<<< HEAD
   marginHorizontal: menuSpacing.lg,
   marginTop: menuSpacing.md,
   marginBottom: menuSpacing.md,
@@ -260,3 +276,50 @@ addButtonText: {
   fontWeight: 'bold',
 },
 });
+=======
+    marginHorizontal: menuSpacing.lg,
+    marginTop: menuSpacing.md,
+    marginBottom: menuSpacing.md,
+    paddingHorizontal: menuSpacing.md,
+    paddingVertical: menuSpacing.sm,
+    borderWidth: 1,
+    borderColor: menuColors.textSecondary,
+    borderRadius: menuRadius.md,
+    backgroundColor: menuColors.background,
+    color: menuColors.textPrimary,
+  },
+  categoriesContainer: {
+    flexGrow: 0,
+    paddingHorizontal: menuSpacing.lg,
+    marginBottom: menuSpacing.lg,
+  },
+  categoriesContent: {
+    paddingVertical: 4,
+  },
+  categoryButton: {
+    paddingHorizontal: menuSpacing.md,
+    height: 42,
+    justifyContent: 'center',
+    borderRadius: menuRadius.md,
+    backgroundColor: '#E5E5E5',
+    marginRight: 16,
+  },
+  categoryText: {
+    ...menuTypography.body,
+    color: menuColors.textPrimary,
+  },
+  addButton: {
+    backgroundColor: menuColors.textPrimary,
+    paddingHorizontal: menuSpacing.md,
+    height: 42,
+    borderRadius: menuRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    ...menuTypography.body,
+    color: menuColors.background,
+    fontWeight: 'bold',
+  },
+});
+>>>>>>> feature/fernanda

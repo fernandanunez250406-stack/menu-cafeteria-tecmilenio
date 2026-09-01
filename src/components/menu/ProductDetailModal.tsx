@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, View, Text, Pressable, ScrollView, StyleSheet, Animated } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, StyleSheet, Animated, Image } from 'react-native';
 import { MenuItem } from '../../types/menu';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
 
@@ -40,9 +40,16 @@ export default function ProductDetailModal({
         <View style={styles.sheet}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.imageWrap}>
-              <Animated.Text style={[styles.emoji, { transform: [{ scale }] }]}>
-                {item.emoji}
-              </Animated.Text>
+              {item.photoUri ? (
+                <Animated.Image
+                  source={{ uri: item.photoUri }}
+                  style={[styles.photo, { transform: [{ scale }] }]}
+                />
+              ) : (
+                <Animated.Text style={[styles.emoji, { transform: [{ scale }] }]}>
+                  {item.emoji}
+                </Animated.Text>
+              )}
               <Pressable style={styles.closeButton} onPress={onClose}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </Pressable>
@@ -108,6 +115,10 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 96,
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
   },
   closeButton: {
     position: 'absolute',

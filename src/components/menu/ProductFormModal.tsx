@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Modal,
   View,
   Text,
@@ -11,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { MenuCategory, MenuItem, MenuItemDraft } from '../../types/menu';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
 
@@ -22,21 +24,14 @@ type Props = {
   onSave: (draft: MenuItemDraft, id?: string) => void;
 };
 
-const PLACEHOLDER_IMAGES = [
-  'https://picsum.photos/seed/menu-a/600/600',
-  'https://picsum.photos/seed/menu-b/600/600',
-  'https://picsum.photos/seed/menu-c/600/600',
-  'https://picsum.photos/seed/menu-d/600/600',
-];
-
 const emptyDraft = (categoryId: string): MenuItemDraft => ({
   categoryId,
   name: '',
   price: 0,
-  imageUrl: PLACEHOLDER_IMAGES[0],
+  emoji: '🍽️',
+  photoUri: null,
   description: '',
   specs: [],
-  available: true,
 });
 
 export default function ProductFormModal({
@@ -58,10 +53,34 @@ export default function ProductFormModal({
     }
   }, [visible, initialItem]);
 
-  const cycleImage = () => {
-    const currentIndex = PLACEHOLDER_IMAGES.indexOf(draft.imageUrl);
-    const next = PLACEHOLDER_IMAGES[(currentIndex + 1) % PLACEHOLDER_IMAGES.length];
-    setDraft((d) => ({ ...d, imageUrl: next }));
+  const pickImage = async () => {
+    // En web el picker del navegador no requiere este permiso, pero en
+    // Android/iOS sí hay que pedirlo antes de abrir la galería.
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permiso necesario',
+          'Activa el acceso a tus fotos para poder subir una imagen del producto.'
+        );
+        return;
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setDraft((d) => ({ ...d, photoUri: result.assets[0].uri }));
+    }
+  };
+
+  const removeImage = () => {
+    setDraft((d) => ({ ...d, photoUri: null }));
   };
 
   const handleSave = () => {
@@ -87,12 +106,26 @@ export default function ProductFormModal({
           </View>
 
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            <Pressable onPress={cycleImage} style={styles.imagePicker}>
-              <Image source={{ uri: draft.imageUrl }} style={styles.image} />
+            <Pressable onPress={pickImage} style={styles.imagePicker}>
+              {draft.photoUri ? (
+                <Image source={{ uri: draft.photoUri }} style={styles.image} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.imagePlaceholderEmoji}>{draft.emoji || '🍽️'}</Text>
+                </View>
+              )}
               <View style={styles.imagePickerLabel}>
-                <Text style={styles.imagePickerLabelText}>Cambiar imagen</Text>
+                <Text style={styles.imagePickerLabelText}>
+                  {draft.photoUri ? 'Cambiar imagen' : 'Agregar imagen desde tu dispositivo'}
+                </Text>
               </View>
             </Pressable>
+
+            {draft.photoUri && (
+              <Pressable onPress={removeImage} style={styles.removeImageButton}>
+                <Text style={styles.removeImageText}>Quitar foto y usar emoji</Text>
+              </Pressable>
+            )}
 
             <Field label="Nombre del producto">
               <TextInput
@@ -215,6 +248,27 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: menuColors.accentSoft,
+  },
+  imagePlaceholderEmoji: {
+    fontSize: 56,
+  },
+  removeImageButton: {
+    alignSelf: 'flex-start',
+    marginTop: -menuSpacing.md,
+    marginBottom: menuSpacing.lg,
+  },
+  removeImageText: {
+    ...menuTypography.body,
+    fontSize: 13,
+    color: menuColors.danger,
+    fontWeight: '600',
   },
   imagePickerLabel: {
     position: 'absolute',
