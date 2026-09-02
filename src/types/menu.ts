@@ -22,4 +22,4 @@ export type MenuItem = {
 };
 
 // Datos que llena el formulario de alta/edición (sin id, se genera aparte)
-export type MenuItemDraft = Omit<MenuItem, 'id'>;
+export type MenuItemDraft = Omit<MenuItem, "id">;

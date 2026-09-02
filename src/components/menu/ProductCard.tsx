@@ -1,6 +1,17 @@
+<<<<<<< HEAD
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
 import { MenuItem } from '../../types/menu';
+=======
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
+} from "../../constants/menuTheme";
+import { MenuItem } from "../../types/menu";
+>>>>>>> main
 
 type Props = {
   item: MenuItem;
@@ -8,6 +19,7 @@ type Props = {
   onToggleAvailability: () => void; // <-- Propiedad añadida
 };
 
+<<<<<<< HEAD
 export default function ProductCard({ item, onPress, onToggleAvailability }: Props) {
   return (
     <Pressable
@@ -31,6 +43,53 @@ export default function ProductCard({ item, onPress, onToggleAvailability }: Pro
         {item.description}
       </Text>
     </Pressable>
+=======
+export default function ProductCard({
+  item,
+  onPress,
+  onToggleAvailability,
+}: Props) {
+  return (
+    <View style={styles.card}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.productContent,
+          pressed && { transform: [{ scale: 0.98 }] },
+        ]}
+      >
+        <View style={styles.imageWrap}>
+          {item.photoUri ? (
+            <Image source={{ uri: item.photoUri }} style={styles.photo} />
+          ) : (
+            <Text style={styles.emoji}>{item.emoji}</Text>
+          )}
+          <View style={styles.priceSticker}>
+            <Text style={styles.priceText}>${item.price}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.name} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={styles.description} numberOfLines={2}>
+          {item.description}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={[
+          styles.availabilityButton,
+          !item.available && styles.unavailableButton,
+        ]}
+        onPress={onToggleAvailability}
+      >
+        <Text style={styles.availabilityText}>
+          {item.available ? "Disponible" : "No disponible"}
+        </Text>
+      </Pressable>
+    </View>
+>>>>>>> main
   );
 }
 
@@ -41,31 +100,39 @@ const styles = StyleSheet.create({
     borderRadius: menuRadius.lg,
     padding: menuSpacing.sm,
     margin: menuSpacing.sm,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  productContent: {
+    flex: 1,
+  },
   imageWrap: {
-    position: 'relative',
+    position: "relative",
     borderRadius: menuRadius.md,
-    overflow: 'hidden',
+    overflow: "hidden",
     aspectRatio: 1,
     marginBottom: menuSpacing.sm,
     backgroundColor: menuColors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emoji: {
     fontSize: 56,
   },
   photo: {
+<<<<<<< HEAD
     width: '100%',
     height: '100%',
+=======
+    width: "100%",
+    height: "100%",
+>>>>>>> main
   },
   priceSticker: {
-    position: 'absolute',
+    position: "absolute",
     bottom: menuSpacing.sm,
     right: menuSpacing.sm,
     backgroundColor: menuColors.price,
@@ -75,7 +142,7 @@ const styles = StyleSheet.create({
   },
   priceText: {
     ...menuTypography.price,
-    color: '#fff',
+    color: "#fff",
   },
   name: {
     ...menuTypography.subtitle,
@@ -87,4 +154,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: menuColors.textSecondary,
   },
+<<<<<<< HEAD
 });
+=======
+  availabilityButton: {
+    marginTop: menuSpacing.sm,
+    paddingVertical: 8,
+    borderRadius: menuRadius.md,
+    alignItems: "center",
+    backgroundColor: "#4CAF50",
+  },
+  unavailableButton: {
+    backgroundColor: "#E53935",
+  },
+  availabilityText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+});
+>>>>>>> main

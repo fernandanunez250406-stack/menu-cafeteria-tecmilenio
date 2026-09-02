@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useState } from 'react';
+=======
+import { useState } from "react";
+>>>>>>> main
 import {
   FlatList,
   Pressable,
@@ -8,16 +12,24 @@ import {
   Text,
   TextInput,
   View,
+<<<<<<< HEAD
 } from 'react-native';
 
 import ProductCard from '../components/menu/ProductCard';
 import ProductDetailModal from '../components/menu/ProductDetailModal';
 import ProductFormModal from '../components/menu/ProductFormModal';
+=======
+} from "react-native";
+import ProductCard from "../components/menu/ProductCard";
+import ProductDetailModal from "../components/menu/ProductDetailModal";
+import ProductFormModal from "../components/menu/ProductFormModal";
+>>>>>>> main
 import {
   menuColors,
   menuRadius,
   menuSpacing,
   menuTypography,
+<<<<<<< HEAD
 } from '../constants/menuTheme';
 import { mockCategories, mockMenuItems } from '../data/mockMenu';
 import { MenuItem, MenuItemDraft } from '../types/menu';
@@ -28,15 +40,29 @@ export default function MenuScreen() {
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
+=======
+} from "../constants/menuTheme";
+import { mockCategories, mockMenuItems } from "../data/mockMenu";
+import { MenuItem, MenuItemDraft } from "../types/menu";
+import { confirmAction } from "../utils/crossPlatformConfirm";
+
+export default function MenuScreen() {
+  const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
+  const [searchText, setSearchText] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Todos");
+>>>>>>> main
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
       .includes(searchText.toLowerCase());
-
     const matchesCategory =
+<<<<<<< HEAD
       selectedCategory === 'Todos' ||
       item.categoryId === selectedCategory;
 
+=======
+      selectedCategory === "Todos" || item.categoryId === selectedCategory;
+>>>>>>> main
     return matchesSearch && matchesCategory;
   });
 
@@ -59,10 +85,8 @@ export default function MenuScreen() {
   const toggleAvailability = (item: MenuItem) => {
     setItems((prev) =>
       prev.map((it) =>
-        it.id === item.id
-          ? { ...it, available: !it.available }
-          : it
-      )
+        it.id === item.id ? { ...it, available: !it.available } : it,
+      ),
     );
   };
 
@@ -75,9 +99,13 @@ export default function MenuScreen() {
   const handleSave = (draft: MenuItemDraft, id?: string) => {
     if (id) {
       setItems((prev) =>
+<<<<<<< HEAD
         prev.map((it) =>
           it.id === id ? { ...it, ...draft } : it
         )
+=======
+        prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
+>>>>>>> main
       );
     } else {
       const newItem: MenuItem = {
@@ -94,7 +122,7 @@ export default function MenuScreen() {
 
   const handleDelete = (item: MenuItem) => {
     confirmAction(
-      'Eliminar producto',
+      "Eliminar producto",
       `¿Quitar "${item.name}" del menú?`,
       () => {
         setItems((prev) =>
@@ -102,7 +130,7 @@ export default function MenuScreen() {
         );
         setDetailVisible(false);
       },
-      'Eliminar'
+      "Eliminar",
     );
   };
 
@@ -111,15 +139,17 @@ export default function MenuScreen() {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.headerTitle}>Menú</Text>
-          <Text style={styles.headerSubtitle}>
-            {items.length} productos
-          </Text>
+          <Text style={styles.headerSubtitle}>{items.length} productos</Text>
         </View>
 
+<<<<<<< HEAD
         <Pressable
           style={styles.addButton}
           onPress={openCreateForm}
         >
+=======
+        <Pressable style={styles.addButton} onPress={openCreateForm}>
+>>>>>>> main
           <Text style={styles.addButtonText}>+ Agregar</Text>
         </Pressable>
       </View>
@@ -139,7 +169,7 @@ export default function MenuScreen() {
       >
         <Pressable
           style={styles.categoryButton}
-          onPress={() => setSelectedCategory('Todos')}
+          onPress={() => setSelectedCategory("Todos")}
         >
           <Text style={styles.categoryText}>Todos</Text>
         </Pressable>
@@ -166,9 +196,13 @@ export default function MenuScreen() {
           <ProductCard
             item={item}
             onPress={() => openDetail(item)}
+<<<<<<< HEAD
             onToggleAvailability={() =>
               toggleAvailability(item)
             }
+=======
+            onToggleAvailability={() => toggleAvailability(item)}
+>>>>>>> main
           />
         )}
         ListEmptyComponent={
@@ -207,9 +241,15 @@ const styles = StyleSheet.create({
   headerRow: {
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
+<<<<<<< HEAD
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+=======
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+>>>>>>> main
   },
   headerTitle: {
     ...menuTypography.title,
@@ -227,7 +267,7 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     padding: menuSpacing.xl,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyTitle: {
     ...menuTypography.subtitle,
@@ -237,7 +277,7 @@ const styles = StyleSheet.create({
   emptyBody: {
     ...menuTypography.body,
     color: menuColors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   searchInput: {
     marginHorizontal: menuSpacing.lg,
@@ -262,9 +302,15 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingHorizontal: menuSpacing.md,
     height: 42,
+<<<<<<< HEAD
     justifyContent: 'center',
     borderRadius: menuRadius.md,
     backgroundColor: '#E5E5E5',
+=======
+    justifyContent: "center",
+    borderRadius: menuRadius.md,
+    backgroundColor: "#E5E5E5",
+>>>>>>> main
     marginRight: 16,
   },
   categoryText: {
@@ -276,12 +322,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: menuSpacing.md,
     height: 42,
     borderRadius: menuRadius.md,
+<<<<<<< HEAD
     justifyContent: 'center',
     alignItems: 'center',
+=======
+    justifyContent: "center",
+    alignItems: "center",
+>>>>>>> main
   },
   addButtonText: {
     ...menuTypography.body,
     color: menuColors.background,
+<<<<<<< HEAD
     fontWeight: 'bold',
   },
 });
+=======
+    fontWeight: "bold",
+  },
+});
+>>>>>>> main
