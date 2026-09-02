@@ -1,9 +1,24 @@
 import { useState } from 'react';
-import { FlatList, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
 import ProductCard from '../components/menu/ProductCard';
 import ProductDetailModal from '../components/menu/ProductDetailModal';
 import ProductFormModal from '../components/menu/ProductFormModal';
-import { menuColors, menuRadius, menuSpacing, menuTypography } from '../constants/menuTheme';
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
+} from '../constants/menuTheme';
 import { mockCategories, mockMenuItems } from '../data/mockMenu';
 import { MenuItem, MenuItemDraft } from '../types/menu';
 import { confirmAction } from '../utils/crossPlatformConfirm';
@@ -12,6 +27,7 @@ export default function MenuScreen() {
   const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
+
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
@@ -20,10 +36,9 @@ export default function MenuScreen() {
     const matchesCategory =
       selectedCategory === 'Todos' ||
       item.categoryId === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
-      
-});
+  });
 
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -40,6 +55,7 @@ export default function MenuScreen() {
     setDetailItem(item);
     setDetailVisible(true);
   };
+
   const toggleAvailability = (item: MenuItem) => {
     setItems((prev) =>
       prev.map((it) =>
@@ -58,11 +74,21 @@ export default function MenuScreen() {
 
   const handleSave = (draft: MenuItemDraft, id?: string) => {
     if (id) {
-      setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...draft } : it)));
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === id ? { ...it, ...draft } : it
+        )
+      );
     } else {
-      const newItem: MenuItem = { ...draft, id: `item-${Date.now()}` };
+      const newItem: MenuItem = {
+        ...draft,
+        id: `item-${Date.now()}`,
+        available: true, // nuevo producto inicia disponible
+      };
+
       setItems((prev) => [newItem, ...prev]);
     }
+
     setFormVisible(false);
   };
 
@@ -71,7 +97,9 @@ export default function MenuScreen() {
       'Eliminar producto',
       `¿Quitar "${item.name}" del menú?`,
       () => {
-        setItems((prev) => prev.filter((it) => it.id !== item.id));
+        setItems((prev) =>
+          prev.filter((it) => it.id !== item.id)
+        );
         setDetailVisible(false);
       },
       'Eliminar'
@@ -92,10 +120,10 @@ export default function MenuScreen() {
           style={styles.addButton}
           onPress={openCreateForm}
         >
-
-          <Text style={styles.addButtonText}> + Agregar</Text>
+          <Text style={styles.addButtonText}>+ Agregar</Text>
         </Pressable>
       </View>
+
       <TextInput
         style={styles.searchInput}
         placeholder="Buscar productos.."
@@ -122,31 +150,32 @@ export default function MenuScreen() {
             style={styles.categoryButton}
             onPress={() => setSelectedCategory(category.id)}
           >
-
             <Text style={styles.categoryText}>
               {category.emoji} {category.label}
             </Text>
-
           </Pressable>
         ))}
-
       </ScrollView>
- 
+
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.grid}
         renderItem={({ item }) => (
-          <ProductCard 
-            item={item} 
+          <ProductCard
+            item={item}
             onPress={() => openDetail(item)}
-            onToggleAvailability={() => toggleAvailability(item)}
-            />
-          )}
+            onToggleAvailability={() =>
+              toggleAvailability(item)
+            }
+          />
+        )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No hay productos aquí todavía</Text>
+            <Text style={styles.emptyTitle}>
+              No hay productos aquí todavía
+            </Text>
           </View>
         }
       />
@@ -180,7 +209,7 @@ const styles = StyleSheet.create({
     paddingTop: menuSpacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   headerTitle: {
     ...menuTypography.title,
@@ -211,49 +240,48 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   searchInput: {
-  marginHorizontal: menuSpacing.lg,
-  marginTop: menuSpacing.md,
-  marginBottom: menuSpacing.md,
-  paddingHorizontal: menuSpacing.md,
-  paddingVertical: menuSpacing.sm,
-  borderWidth: 1,
-  borderColor: menuColors.textSecondary,
-  borderRadius: menuRadius.md,
-  backgroundColor: menuColors.background,
-  color: menuColors.textPrimary,
-},
-categoriesContainer: {
-  flexGrow: 0,
-  paddingHorizontal: menuSpacing.lg,
-  marginBottom: menuSpacing.lg,
-},
-categoriesContent: {
-  paddingVertical:4,
-},
-categoryButton: {
-  paddingHorizontal: menuSpacing.md,
-  height: 42,
-  justifyContent: 'center',
-  borderRadius: menuRadius.md,
-  backgroundColor: '#E5E5E5',
-  marginRight: 16,
-},
-categoryText: {
-  ...menuTypography.body,
-  color: menuColors.textPrimary,
-},
-addButton: {
-  backgroundColor: menuColors.textPrimary,
-  paddingHorizontal: menuSpacing.md,
-  height: 42,
-  borderRadius: menuRadius.md,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-
-addButtonText: {
-  ...menuTypography.body,
-  color: menuColors.background,
-  fontWeight: 'bold',
-},
+    marginHorizontal: menuSpacing.lg,
+    marginTop: menuSpacing.md,
+    marginBottom: menuSpacing.md,
+    paddingHorizontal: menuSpacing.md,
+    paddingVertical: menuSpacing.sm,
+    borderWidth: 1,
+    borderColor: menuColors.textSecondary,
+    borderRadius: menuRadius.md,
+    backgroundColor: menuColors.background,
+    color: menuColors.textPrimary,
+  },
+  categoriesContainer: {
+    flexGrow: 0,
+    paddingHorizontal: menuSpacing.lg,
+    marginBottom: menuSpacing.lg,
+  },
+  categoriesContent: {
+    paddingVertical: 4,
+  },
+  categoryButton: {
+    paddingHorizontal: menuSpacing.md,
+    height: 42,
+    justifyContent: 'center',
+    borderRadius: menuRadius.md,
+    backgroundColor: '#E5E5E5',
+    marginRight: 16,
+  },
+  categoryText: {
+    ...menuTypography.body,
+    color: menuColors.textPrimary,
+  },
+  addButton: {
+    backgroundColor: menuColors.textPrimary,
+    paddingHorizontal: menuSpacing.md,
+    height: 42,
+    borderRadius: menuRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    ...menuTypography.body,
+    color: menuColors.background,
+    fontWeight: 'bold',
+  },
 });

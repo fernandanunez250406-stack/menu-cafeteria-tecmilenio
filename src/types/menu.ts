@@ -15,6 +15,7 @@ export type MenuItem = {
   name: string;
   price: number;
   emoji: string;
+  photoUri?: string | null; // foto subida por el personal desde su dispositivo (HU1)
   description: string;
   specs: MenuSpec[];
   available: boolean;
