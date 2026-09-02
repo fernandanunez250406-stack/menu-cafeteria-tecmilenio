@@ -1,20 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import * as ImagePicker from "expo-image-picker";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Modal,
-  View,
-  Text,
-  TextInput,
-  Pressable,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { MenuCategory, MenuItem, MenuItemDraft } from '../../types/menu';
-import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
+} from "../../constants/menuTheme";
+import { MenuCategory, MenuItem, MenuItemDraft } from "../../types/menu";
 
 type Props = {
   visible: boolean;
@@ -26,12 +31,13 @@ type Props = {
 
 const emptyDraft = (categoryId: string): MenuItemDraft => ({
   categoryId,
-  name: '',
+  name: "",
   price: 0,
-  emoji: '🍽️',
+  emoji: "🍽️",
   photoUri: null,
-  description: '',
+  description: "",
   specs: [],
+  available: true,
 });
 
 export default function ProductFormModal({
@@ -42,26 +48,27 @@ export default function ProductFormModal({
   onSave,
 }: Props) {
   const [draft, setDraft] = useState<MenuItemDraft>(
-    initialItem ?? emptyDraft(categories[0]?.id ?? '')
+    initialItem ?? emptyDraft(categories[0]?.id ?? ""),
   );
-  const [priceText, setPriceText] = useState(initialItem ? String(initialItem.price) : '');
+  const [priceText, setPriceText] = useState(
+    initialItem ? String(initialItem.price) : "",
+  );
 
   useEffect(() => {
     if (visible) {
-      setDraft(initialItem ?? emptyDraft(categories[0]?.id ?? ''));
-      setPriceText(initialItem ? String(initialItem.price) : '');
+      setDraft(initialItem ?? emptyDraft(categories[0]?.id ?? ""));
+      setPriceText(initialItem ? String(initialItem.price) : "");
     }
   }, [visible, initialItem]);
 
   const pickImage = async () => {
-    // En web el picker del navegador no requiere este permiso, pero en
-    // Android/iOS sí hay que pedirlo antes de abrir la galería.
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+    if (Platform.OS !== "web") {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
         Alert.alert(
-          'Permiso necesario',
-          'Activa el acceso a tus fotos para poder subir una imagen del producto.'
+          "Permiso necesario",
+          "Activa el acceso a tus fotos para poder subir una imagen del producto.",
         );
         return;
       }
@@ -84,46 +91,60 @@ export default function ProductFormModal({
   };
 
   const handleSave = () => {
-    if (!draft.name.trim()) return; // validación mínima
-    const parsedPrice = parseFloat(priceText.replace(',', '.')) || 0;
+    if (!draft.name.trim()) return;
+    const parsedPrice = parseFloat(priceText.replace(",", ".")) || 0;
     onSave({ ...draft, price: parsedPrice }, initialItem?.id);
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.overlay}
       >
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {initialItem ? 'Editar producto' : 'Nuevo producto'}
+              {initialItem ? "Editar producto" : "Nuevo producto"}
             </Text>
             <Pressable onPress={onClose}>
               <Text style={styles.closeText}>Cancelar</Text>
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={styles.form}
+            keyboardShouldPersistTaps="handled"
+          >
             <Pressable onPress={pickImage} style={styles.imagePicker}>
               {draft.photoUri ? (
                 <Image source={{ uri: draft.photoUri }} style={styles.image} />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Text style={styles.imagePlaceholderEmoji}>{draft.emoji || '🍽️'}</Text>
+                  <Text style={styles.imagePlaceholderEmoji}>
+                    {draft.emoji || "🍽️"}
+                  </Text>
                 </View>
               )}
               <View style={styles.imagePickerLabel}>
                 <Text style={styles.imagePickerLabelText}>
-                  {draft.photoUri ? 'Cambiar imagen' : 'Agregar imagen desde tu dispositivo'}
+                  {draft.photoUri
+                    ? "Cambiar imagen"
+                    : "Agregar imagen desde tu dispositivo"}
                 </Text>
               </View>
             </Pressable>
 
             {draft.photoUri && (
               <Pressable onPress={removeImage} style={styles.removeImageButton}>
-                <Text style={styles.removeImageText}>Quitar foto y usar emoji</Text>
+                <Text style={styles.removeImageText}>
+                  Quitar foto y usar emoji
+                </Text>
               </Pressable>
             )}
 
@@ -155,8 +176,13 @@ export default function ProductFormModal({
                   return (
                     <Pressable
                       key={cat.id}
-                      onPress={() => setDraft((d) => ({ ...d, categoryId: cat.id }))}
-                      style={[styles.categoryOption, active && styles.categoryOptionActive]}
+                      onPress={() =>
+                        setDraft((d) => ({ ...d, categoryId: cat.id }))
+                      }
+                      style={[
+                        styles.categoryOption,
+                        active && styles.categoryOptionActive,
+                      ]}
                     >
                       <Text
                         style={[
@@ -176,7 +202,9 @@ export default function ProductFormModal({
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={draft.description}
-                onChangeText={(text) => setDraft((d) => ({ ...d, description: text }))}
+                onChangeText={(text) =>
+                  setDraft((d) => ({ ...d, description: text }))
+                }
                 placeholder="Describe el producto para tus clientes"
                 placeholderTextColor={menuColors.textSecondary}
                 multiline
@@ -186,7 +214,7 @@ export default function ProductFormModal({
 
             <Pressable style={styles.saveButton} onPress={handleSave}>
               <Text style={styles.saveButtonText}>
-                {initialItem ? 'Guardar cambios' : 'Agregar al menú'}
+                {initialItem ? "Guardar cambios" : "Agregar al menú"}
               </Text>
             </Pressable>
           </ScrollView>
@@ -196,7 +224,13 @@ export default function ProductFormModal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -209,18 +243,18 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: menuColors.overlay,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: menuColors.background,
     borderTopLeftRadius: menuRadius.lg,
     borderTopRightRadius: menuRadius.lg,
-    maxHeight: '92%',
+    maxHeight: "92%",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: menuSpacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: menuColors.border,
@@ -232,35 +266,35 @@ const styles = StyleSheet.create({
   },
   closeText: {
     color: menuColors.textSecondary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   form: {
     padding: menuSpacing.lg,
   },
   imagePicker: {
-    width: '100%',
+    width: "100%",
     aspectRatio: 1.4,
     borderRadius: menuRadius.md,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: menuSpacing.lg,
-    position: 'relative',
+    position: "relative",
   },
   image: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: menuColors.accentSoft,
   },
   imagePlaceholderEmoji: {
     fontSize: 56,
   },
   removeImageButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginTop: -menuSpacing.md,
     marginBottom: menuSpacing.lg,
   },
@@ -268,20 +302,20 @@ const styles = StyleSheet.create({
     ...menuTypography.body,
     fontSize: 13,
     color: menuColors.danger,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   imagePickerLabel: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
     paddingVertical: menuSpacing.sm,
-    alignItems: 'center',
+    alignItems: "center",
   },
   imagePickerLabelText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 13,
   },
   field: {
@@ -304,7 +338,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   categoryOption: {
     backgroundColor: menuColors.surface,
@@ -324,19 +358,19 @@ const styles = StyleSheet.create({
     color: menuColors.textPrimary,
   },
   categoryOptionTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
   },
   saveButton: {
     backgroundColor: menuColors.accent,
     borderRadius: menuRadius.md,
     paddingVertical: menuSpacing.md,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: menuSpacing.sm,
   },
   saveButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 15,
   },
 });
