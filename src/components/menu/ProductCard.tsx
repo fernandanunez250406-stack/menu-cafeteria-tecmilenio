@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
-import { MenuItem } from '../../types/menu';
-=======
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   menuColors,
@@ -11,39 +6,13 @@ import {
   menuTypography,
 } from "../../constants/menuTheme";
 import { MenuItem } from "../../types/menu";
->>>>>>> main
 
 type Props = {
   item: MenuItem;
   onPress: () => void;
-  onToggleAvailability: () => void; // <-- Propiedad añadida
+  onToggleAvailability: () => void;
 };
 
-<<<<<<< HEAD
-export default function ProductCard({ item, onPress, onToggleAvailability }: Props) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.98 }] }]}
-    >
-      <View style={styles.imageWrap}>
-        {item.photoUri ? (
-          <Image source={{ uri: item.photoUri }} style={styles.photo} />
-        ) : (
-          <Text style={styles.emoji}>{item.emoji}</Text>
-        )}
-        <View style={styles.priceSticker}>
-          <Text style={styles.priceText}>${item.price}</Text>
-        </View>
-      </View>
-      <Text style={styles.name} numberOfLines={1}>
-        {item.name}
-      </Text>
-      <Text style={styles.description} numberOfLines={2}>
-        {item.description}
-      </Text>
-    </Pressable>
-=======
 export default function ProductCard({
   item,
   onPress,
@@ -89,7 +58,6 @@ export default function ProductCard({
         </Text>
       </Pressable>
     </View>
->>>>>>> main
   );
 }
 
@@ -123,13 +91,8 @@ const styles = StyleSheet.create({
     fontSize: 56,
   },
   photo: {
-<<<<<<< HEAD
-    width: '100%',
-    height: '100%',
-=======
     width: "100%",
     height: "100%",
->>>>>>> main
   },
   priceSticker: {
     position: "absolute",
@@ -154,9 +117,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: menuColors.textSecondary,
   },
-<<<<<<< HEAD
-});
-=======
   availabilityButton: {
     marginTop: menuSpacing.sm,
     paddingVertical: 8,
@@ -173,4 +133,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
->>>>>>> main

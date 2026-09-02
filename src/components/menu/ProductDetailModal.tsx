@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import React, { useEffect, useRef } from 'react';
-import { Modal, View, Text, Pressable, ScrollView, StyleSheet, Animated, Image } from 'react-native';
-import { MenuItem } from '../../types/menu';
-import { menuColors, menuRadius, menuSpacing, menuTypography } from '../../constants/menuTheme';
-=======
 import { useEffect, useRef } from "react";
 import {
   Animated,
@@ -21,7 +15,6 @@ import {
   menuTypography,
 } from "../../constants/menuTheme";
 import { MenuItem } from "../../types/menu";
->>>>>>> main
 
 type Props = {
   item: MenuItem | null;
@@ -55,16 +48,12 @@ export default function ProductDetailModal({
   if (!item) return null;
 
   return (
-<<<<<<< HEAD
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-=======
     <Modal
       visible={visible}
       animationType="slide"
       transparent
       onRequestClose={onClose}
     >
->>>>>>> main
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -75,13 +64,9 @@ export default function ProductDetailModal({
                   style={[styles.photo, { transform: [{ scale }] }]}
                 />
               ) : (
-<<<<<<< HEAD
-                <Animated.Text style={[styles.emoji, { transform: [{ scale }] }]}>
-=======
                 <Animated.Text
                   style={[styles.emoji, { transform: [{ scale }] }]}
                 >
->>>>>>> main
                   {item.emoji}
                 </Animated.Text>
               )}
@@ -110,12 +95,6 @@ export default function ProductDetailModal({
               )}
 
               <View style={styles.actions}>
-<<<<<<< HEAD
-                <Pressable style={styles.editButton} onPress={() => onEdit(item)}>
-                  <Text style={styles.editButtonText}>Editar</Text>
-                </Pressable>
-                <Pressable style={styles.deleteButton} onPress={() => onDelete(item)}>
-=======
                 <Pressable
                   style={styles.editButton}
                   onPress={() => onEdit(item)}
@@ -126,7 +105,6 @@ export default function ProductDetailModal({
                   style={styles.deleteButton}
                   onPress={() => onDelete(item)}
                 >
->>>>>>> main
                   <Text style={styles.deleteButtonText}>Eliminar</Text>
                 </Pressable>
               </View>
@@ -142,30 +120,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: menuColors.overlay,
-<<<<<<< HEAD
-    justifyContent: 'flex-end',
-=======
     justifyContent: "flex-end",
->>>>>>> main
   },
   sheet: {
     backgroundColor: menuColors.background,
     borderTopLeftRadius: menuRadius.lg,
     borderTopRightRadius: menuRadius.lg,
-<<<<<<< HEAD
-    maxHeight: '90%',
-  },
-  imageWrap: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: 1.6,
-    borderTopLeftRadius: menuRadius.lg,
-    borderTopRightRadius: menuRadius.lg,
-    overflow: 'hidden',
-    backgroundColor: menuColors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-=======
     maxHeight: "90%",
   },
   imageWrap: {
@@ -178,34 +138,11 @@ const styles = StyleSheet.create({
     backgroundColor: menuColors.accentSoft,
     alignItems: "center",
     justifyContent: "center",
->>>>>>> main
   },
   emoji: {
     fontSize: 96,
   },
   photo: {
-<<<<<<< HEAD
-    width: '100%',
-    height: '100%',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: menuSpacing.md,
-    left: menuSpacing.md,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  priceSticker: {
-    position: 'absolute',
-=======
     width: "100%",
     height: "100%",
   },
@@ -226,7 +163,6 @@ const styles = StyleSheet.create({
   },
   priceSticker: {
     position: "absolute",
->>>>>>> main
     bottom: menuSpacing.md,
     right: menuSpacing.md,
     backgroundColor: menuColors.price,
@@ -237,11 +173,7 @@ const styles = StyleSheet.create({
   priceText: {
     ...menuTypography.price,
     fontSize: 18,
-<<<<<<< HEAD
-    color: '#fff',
-=======
     color: "#fff",
->>>>>>> main
   },
   content: {
     padding: menuSpacing.lg,
@@ -267,13 +199,8 @@ const styles = StyleSheet.create({
     marginBottom: menuSpacing.sm,
   },
   specRow: {
-<<<<<<< HEAD
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-=======
     flexDirection: "row",
     justifyContent: "space-between",
->>>>>>> main
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: menuColors.border,
@@ -284,19 +211,11 @@ const styles = StyleSheet.create({
   },
   specValue: {
     ...menuTypography.body,
-<<<<<<< HEAD
-    fontWeight: '600',
-    color: menuColors.textPrimary,
-  },
-  actions: {
-    flexDirection: 'row',
-=======
     fontWeight: "600",
     color: menuColors.textPrimary,
   },
   actions: {
     flexDirection: "row",
->>>>>>> main
     gap: menuSpacing.sm,
   },
   editButton: {
@@ -304,34 +223,17 @@ const styles = StyleSheet.create({
     backgroundColor: menuColors.accent,
     borderRadius: menuRadius.md,
     paddingVertical: menuSpacing.md,
-<<<<<<< HEAD
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-=======
     alignItems: "center",
   },
   editButtonText: {
     color: "#fff",
     fontWeight: "700",
->>>>>>> main
   },
   deleteButton: {
     flex: 1,
     backgroundColor: menuColors.dangerSoft,
     borderRadius: menuRadius.md,
     paddingVertical: menuSpacing.md,
-<<<<<<< HEAD
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    color: menuColors.danger,
-    fontWeight: '700',
-  },
-});
-=======
     alignItems: "center",
   },
   deleteButtonText: {
@@ -339,4 +241,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
->>>>>>> main

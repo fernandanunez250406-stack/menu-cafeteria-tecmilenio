@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useState } from 'react';
-=======
 import { useState } from "react";
->>>>>>> main
 import {
   FlatList,
   Pressable,
@@ -12,35 +8,15 @@ import {
   Text,
   TextInput,
   View,
-<<<<<<< HEAD
-} from 'react-native';
-
-import ProductCard from '../components/menu/ProductCard';
-import ProductDetailModal from '../components/menu/ProductDetailModal';
-import ProductFormModal from '../components/menu/ProductFormModal';
-=======
 } from "react-native";
 import ProductCard from "../components/menu/ProductCard";
 import ProductDetailModal from "../components/menu/ProductDetailModal";
 import ProductFormModal from "../components/menu/ProductFormModal";
->>>>>>> main
 import {
   menuColors,
   menuRadius,
   menuSpacing,
   menuTypography,
-<<<<<<< HEAD
-} from '../constants/menuTheme';
-import { mockCategories, mockMenuItems } from '../data/mockMenu';
-import { MenuItem, MenuItemDraft } from '../types/menu';
-import { confirmAction } from '../utils/crossPlatformConfirm';
-
-export default function MenuScreen() {
-  const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
-  const [searchText, setSearchText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
-
-=======
 } from "../constants/menuTheme";
 import { mockCategories, mockMenuItems } from "../data/mockMenu";
 import { MenuItem, MenuItemDraft } from "../types/menu";
@@ -50,19 +26,12 @@ export default function MenuScreen() {
   const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
->>>>>>> main
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
       .includes(searchText.toLowerCase());
     const matchesCategory =
-<<<<<<< HEAD
-      selectedCategory === 'Todos' ||
-      item.categoryId === selectedCategory;
-
-=======
       selectedCategory === "Todos" || item.categoryId === selectedCategory;
->>>>>>> main
     return matchesSearch && matchesCategory;
   });
 
@@ -99,24 +68,12 @@ export default function MenuScreen() {
   const handleSave = (draft: MenuItemDraft, id?: string) => {
     if (id) {
       setItems((prev) =>
-<<<<<<< HEAD
-        prev.map((it) =>
-          it.id === id ? { ...it, ...draft } : it
-        )
-=======
         prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
->>>>>>> main
       );
     } else {
-      const newItem: MenuItem = {
-        ...draft,
-        id: `item-${Date.now()}`,
-        available: true, // nuevo producto inicia disponible
-      };
-
+      const newItem: MenuItem = { ...draft, id: `item-${Date.now()}` };
       setItems((prev) => [newItem, ...prev]);
     }
-
     setFormVisible(false);
   };
 
@@ -125,9 +82,7 @@ export default function MenuScreen() {
       "Eliminar producto",
       `¿Quitar "${item.name}" del menú?`,
       () => {
-        setItems((prev) =>
-          prev.filter((it) => it.id !== item.id)
-        );
+        setItems((prev) => prev.filter((it) => it.id !== item.id));
         setDetailVisible(false);
       },
       "Eliminar",
@@ -142,14 +97,7 @@ export default function MenuScreen() {
           <Text style={styles.headerSubtitle}>{items.length} productos</Text>
         </View>
 
-<<<<<<< HEAD
-        <Pressable
-          style={styles.addButton}
-          onPress={openCreateForm}
-        >
-=======
         <Pressable style={styles.addButton} onPress={openCreateForm}>
->>>>>>> main
           <Text style={styles.addButtonText}>+ Agregar</Text>
         </Pressable>
       </View>
@@ -196,20 +144,12 @@ export default function MenuScreen() {
           <ProductCard
             item={item}
             onPress={() => openDetail(item)}
-<<<<<<< HEAD
-            onToggleAvailability={() =>
-              toggleAvailability(item)
-            }
-=======
             onToggleAvailability={() => toggleAvailability(item)}
->>>>>>> main
           />
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>
-              No hay productos aquí todavía
-            </Text>
+            <Text style={styles.emptyTitle}>No hay productos aquí todavía</Text>
           </View>
         }
       />
@@ -241,15 +181,9 @@ const styles = StyleSheet.create({
   headerRow: {
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
-<<<<<<< HEAD
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-=======
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
->>>>>>> main
   },
   headerTitle: {
     ...menuTypography.title,
@@ -302,15 +236,9 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingHorizontal: menuSpacing.md,
     height: 42,
-<<<<<<< HEAD
-    justifyContent: 'center',
-    borderRadius: menuRadius.md,
-    backgroundColor: '#E5E5E5',
-=======
     justifyContent: "center",
     borderRadius: menuRadius.md,
     backgroundColor: "#E5E5E5",
->>>>>>> main
     marginRight: 16,
   },
   categoryText: {
@@ -322,23 +250,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: menuSpacing.md,
     height: 42,
     borderRadius: menuRadius.md,
-<<<<<<< HEAD
-    justifyContent: 'center',
-    alignItems: 'center',
-=======
     justifyContent: "center",
     alignItems: "center",
->>>>>>> main
   },
   addButtonText: {
     ...menuTypography.body,
     color: menuColors.background,
-<<<<<<< HEAD
-    fontWeight: 'bold',
-  },
-});
-=======
     fontWeight: "bold",
   },
 });
->>>>>>> main
