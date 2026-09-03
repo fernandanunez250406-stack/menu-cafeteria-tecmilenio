@@ -2,13 +2,13 @@ import { useState } from "react";
 import {
   FlatList,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import ProductCard from "../components/menu/ProductCard";
 import ProductDetailModal from "../components/menu/ProductDetailModal";
 import ProductFormModal from "../components/menu/ProductFormModal";
