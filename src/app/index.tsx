@@ -1,118 +1,305 @@
-import * as Device from 'expo-device';
-import { Link } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Dimensions,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
+} from "@/constants/menuTheme";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+type Promo = {
+  id: string;
+  emoji: string;
+  title: string;
+  subtitle: string;
+};
+
+const promos: Promo[] = [
+  {
+    id: "1",
+    emoji: "☕",
+    title: "2x1 en Latte Vainilla",
+    subtitle: "Todos los martes, 8am–11am",
+  },
+  {
+    id: "2",
+    emoji: "🥐",
+    title: "Combo desayuno",
+    subtitle: "Café + pan dulce por $35",
+  },
+  {
+    id: "3",
+    emoji: "🍋",
+    title: "Limonada Menta",
+    subtitle: "Refréscate esta semana a $30",
+  },
+];
+
+const { width: screenWidth } = Dimensions.get("window");
+
+// Ancho total disponible.
+const CONTAINER_WIDTH = screenWidth - menuSpacing.lg * 2;
+
+// La tarjeta será más delgada y centrada.
+const SLIDE_WIDTH = CONTAINER_WIDTH * 0.88;
+
+// Tarjeta vertical.
+const SLIDE_HEIGHT = SLIDE_WIDTH * 1.45;
+
+const SLIDE_INTERVAL_MS = 4000;
+
+function PromoCarousel() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<FlatList<Promo>>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => {
+        const next = (prev + 1) % promos.length;
+
+        listRef.current?.scrollToIndex({
+          index: next,
+          animated: true,
+        });
+
+        return next;
+      });
+    }, SLIDE_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View style={styles.carouselContainer}>
+      <FlatList
+        ref={listRef}
+        data={promos}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyExtractor={(item) => item.id}
+        getItemLayout={(_, index) => ({
+          // IMPORTANTE:
+          // Cada página ocupa TODO el ancho disponible.
+          length: CONTAINER_WIDTH,
+          offset: CONTAINER_WIDTH * index,
+          index,
+        })}
+        onMomentumScrollEnd={(e) => {
+          const newIndex = Math.round(
+            e.nativeEvent.contentOffset.x / CONTAINER_WIDTH,
+          );
+
+          setActiveIndex(newIndex);
+        }}
+        renderItem={({ item }) => (
+          // Este View representa UNA PÁGINA COMPLETA.
+          <View style={styles.slideWrapper}>
+            {/* La tarjeta es más delgada y queda centrada */}
+            <View
+              style={[
+                styles.promoCard,
+                {
+                  width: SLIDE_WIDTH,
+                  height: SLIDE_HEIGHT,
+                },
+              ]}
+            >
+              <Text style={styles.promoEmoji}>{item.emoji}</Text>
+
+              <Text style={styles.promoTitle}>{item.title}</Text>
+
+              <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
+            </View>
+          </View>
+        )}
+      />
+
+      <View style={styles.dots}>
+        {promos.map((_, i) => (
+          <View
+            key={i}
+            style={[styles.dot, i === activeIndex && styles.dotActive]}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome 
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      {/* ENCABEZADO */}
+      <View style={styles.header}>
+        <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
+      </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      {/* CARRUSEL */}
+      <PromoCarousel />
 
-        <Link href="/menu" asChild>
-          <Pressable style={styles.menuButton}>
-            <Text style={styles.menuButtonText}>Ir al Menú</Text>
-          </Pressable>
-        </Link>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      {/* BOTÓN */}
+      <Link href="/menu" asChild>
+        <Pressable style={styles.menuButton}>
+          <Text style={styles.menuButtonText}>Ir al Menú</Text>
+        </Pressable>
+      </Link>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    backgroundColor: menuColors.background,
+    paddingHorizontal: menuSpacing.lg,
+    paddingTop: menuSpacing.xl,
+    paddingBottom: menuSpacing.xl,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+
+  // =========================
+  // ENCABEZADO
+  // =========================
+
+  header: {
+    alignItems: "center",
+    gap: 4,
+
+    // Separación entre encabezado y tarjeta
+    marginBottom: 32,
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-  menuButton: {
-    backgroundColor: '#2F6F5E',
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    borderRadius: Spacing.four,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  menuButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+
+  welcomeLabel: {
+    ...menuTypography.label,
+    color: menuColors.textSecondary,
+    letterSpacing: 2,
     fontSize: 15,
+    fontWeight: "700",
+  },
+
+  brandTitle: {
+    ...menuTypography.title,
+    fontSize: 31,
+    fontWeight: "800",
+    color: menuColors.textPrimary,
+    textAlign: "center",
+  },
+
+  // =========================
+  // CARRUSEL
+  // =========================
+
+  carouselContainer: {
+    width: "100%",
+    alignItems: "center",
+  },
+
+  // Cada slide ocupa TODO el ancho.
+  // Esto evita que aparezca el borde del siguiente.
+  slideWrapper: {
+    width: CONTAINER_WIDTH,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // =========================
+  // TARJETA
+  // =========================
+
+  promoCard: {
+    backgroundColor: menuColors.accentSoft,
+    borderRadius: menuRadius.lg,
+
+    paddingHorizontal: menuSpacing.lg,
+    paddingVertical: 30,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    gap: menuSpacing.sm,
+  },
+
+  promoEmoji: {
+    fontSize: 38,
+    textAlign: "center",
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+
+  promoTitle: {
+    ...menuTypography.title,
+    fontSize: 18,
+    color: menuColors.accent,
+    textAlign: "center",
+  },
+
+  promoSubtitle: {
+    ...menuTypography.body,
+    color: menuColors.textSecondary,
+    textAlign: "center",
+  },
+
+  // =========================
+  // PUNTOS
+  // =========================
+
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+
+    gap: 6,
+
+    // Separación de la tarjeta
+    marginTop: 14,
+  },
+
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: menuColors.border,
+  },
+
+  dotActive: {
+    backgroundColor: menuColors.accent,
+    width: 18,
+  },
+
+  // =========================
+  // BOTÓN
+  // =========================
+
+  menuButton: {
+    backgroundColor: menuColors.accent,
+
+    paddingVertical: menuSpacing.md + 4,
+
+    borderRadius: menuRadius.md,
+
+    alignItems: "center",
+
+    // Lo mantiene abajo de la pantalla
+    marginTop: "auto",
+  },
+
+  menuButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });
