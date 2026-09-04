@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -140,12 +140,13 @@ function PromoCarousel() {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* ENCABEZADO */}
       <View style={styles.header}>
         <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
-
         <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
       </View>
 
@@ -153,11 +154,15 @@ export default function HomeScreen() {
       <PromoCarousel />
 
       {/* BOTÓN */}
-      <Link href="/menu" asChild>
-        <Pressable style={styles.menuButton}>
-          <Text style={styles.menuButtonText}>Ir al Menú</Text>
-        </Pressable>
-      </Link>
+      <Pressable 
+  style={styles.menuButton} 
+  onPress={() => {
+    console.log("BUTTON CLICKED!"); // <--- Let's see if the web is even registering the click
+    router.push("/menu");
+  }}
+>
+  <Text style={styles.menuButtonText}>Ir al Menú</Text>
+</Pressable>
     </SafeAreaView>
   );
 }
