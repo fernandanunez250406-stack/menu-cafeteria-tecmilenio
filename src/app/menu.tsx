@@ -18,11 +18,12 @@ import {
   menuSpacing,
   menuTypography,
 } from "../constants/menuTheme";
+import { useCart } from "../context/CartContext";
 import { mockCategories, mockMenuItems } from "../data/mockMenu";
 import { MenuItem, MenuItemDraft } from "../types/menu";
 import { confirmAction } from "../utils/crossPlatformConfirm";
-
 export default function MenuScreen() {
+  const { addToCart } = useCart();
   const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -145,6 +146,7 @@ export default function MenuScreen() {
             item={item}
             onPress={() => openDetail(item)}
             onToggleAvailability={() => toggleAvailability(item)}
+            onAddToCart={() => addToCart(item)}
           />
         )}
         ListEmptyComponent={
