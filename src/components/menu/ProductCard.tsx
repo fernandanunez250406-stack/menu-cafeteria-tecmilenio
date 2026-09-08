@@ -23,7 +23,6 @@ export default function ProductCard({
 }: Props) {
   return (
     <View style={styles.card}>
-      
       {/* 
         Esta parte de la tarjeta se puede presionar.
         Al hacerlo, ejecuta onPress().
@@ -39,7 +38,6 @@ export default function ProductCard({
         ]}
       >
         <View style={styles.imageWrap}>
-          
           {/* 
             Si el producto tiene una imagen, mostramos la imagen.
             Si no tiene, mostramos el emoji.
@@ -52,9 +50,7 @@ export default function ProductCard({
 
           {/* Precio del producto */}
           <View style={styles.priceSticker}>
-            <Text style={styles.priceText}>
-              ${item.price.toFixed(2)}
-            </Text>
+            <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -88,9 +84,7 @@ export default function ProductCard({
         disabled={!item.available}
       >
         <Text style={styles.cartButtonText}>
-          {item.available
-            ? "🛒"
-            : "No disponible"}
+          {item.available ? "Añadir +" : "No disponible"}
         </Text>
       </Pressable>
 
