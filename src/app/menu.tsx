@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   FlatList,
   Pressable,
   ScrollView,
@@ -18,12 +20,16 @@ import {
   menuSpacing,
   menuTypography,
 } from "../constants/menuTheme";
+import { useAdmin } from "../context/AdminContext";
 import { useCart } from "../context/CartContext";
 import { mockCategories, mockMenuItems } from "../data/mockMenu";
 import { MenuItem, MenuItemDraft } from "../types/menu";
 import { confirmAction } from "../utils/crossPlatformConfirm";
+
 export default function MenuScreen() {
-  const { addToCart } = useCart();
+  const router = useRouter();
+  const { isAdmin, logout } = useAdmin();
+  const { addToCart, totalItems } = useCart();
   const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -42,7 +48,25 @@ export default function MenuScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
+  const cartScale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (totalItems === 0) return;
+    Animated.sequence([
+      Animated.spring(cartScale, {
+        toValue: 1.25,
+        useNativeDriver: true,
+        speed: 20,
+      }),
+      Animated.spring(cartScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        speed: 20,
+      }),
+    ]).start();
+  }, [totalItems]);
+
   const openCreateForm = () => {
+    if (!isAdmin) return;
     setEditingItem(null);
     setFormVisible(true);
   };
@@ -53,6 +77,7 @@ export default function MenuScreen() {
   };
 
   const toggleAvailability = (item: MenuItem) => {
+    if (!isAdmin) return;
     setItems((prev) =>
       prev.map((it) =>
         it.id === item.id ? { ...it, available: !it.available } : it,
@@ -61,12 +86,14 @@ export default function MenuScreen() {
   };
 
   const openEditForm = (item: MenuItem) => {
+    if (!isAdmin) return;
     setDetailVisible(false);
     setEditingItem(item);
     setFormVisible(true);
   };
 
   const handleSave = (draft: MenuItemDraft, id?: string) => {
+    if (!isAdmin) return;
     if (id) {
       setItems((prev) =>
         prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
@@ -79,6 +106,7 @@ export default function MenuScreen() {
   };
 
   const handleDelete = (item: MenuItem) => {
+    if (!isAdmin) return;
     confirmAction(
       "Eliminar producto",
       `¿Quitar "${item.name}" del menú?`,
@@ -91,17 +119,45 @@ export default function MenuScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={["top"]}>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.headerTitle}>Menú</Text>
           <Text style={styles.headerSubtitle}>{items.length} productos</Text>
         </View>
 
-        <Pressable style={styles.addButton} onPress={openCreateForm}>
-          <Text style={styles.addButtonText}>+ Agregar</Text>
-        </Pressable>
+        {isAdmin ? (
+          <Pressable style={styles.addButton} onPress={openCreateForm}>
+            <Text style={styles.addButtonText}>+ Agregar</Text>
+          </Pressable>
+        ) : (
+          <Animated.View style={{ transform: [{ scale: cartScale }] }}>
+            <Pressable
+              style={styles.cartHeaderButton}
+              onPress={() => router.push("/cart")}
+            >
+              <Text style={styles.cartHeaderButtonText}>🛒</Text>
+              {totalItems > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{totalItems}</Text>
+                </View>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
       </View>
+
+      {isAdmin && (
+        <Pressable
+          style={styles.logoutRow}
+          onPress={() => {
+            logout();
+            router.replace("/");
+          }}
+        >
+          <Text style={styles.logoutText}>Salir del modo administrador</Text>
+        </Pressable>
+      )}
 
       <TextInput
         style={styles.searchInput}
@@ -110,31 +166,53 @@ export default function MenuScreen() {
         onChangeText={setSearchText}
       />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        <Pressable
-          style={styles.categoryButton}
-          onPress={() => setSelectedCategory("Todos")}
+      <View style={styles.categoriesWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContent}
         >
-          <Text style={styles.categoryText}>Todos</Text>
-        </Pressable>
-
-        {mockCategories.map((category) => (
           <Pressable
-            key={category.id}
-            style={styles.categoryButton}
-            onPress={() => setSelectedCategory(category.id)}
+            style={[
+              styles.categoryButton,
+              selectedCategory === "Todos" && styles.categoryButtonActive,
+            ]}
+            onPress={() => setSelectedCategory("Todos")}
           >
-            <Text style={styles.categoryText}>
-              {category.emoji} {category.label}
+            <Text
+              style={[
+                styles.categoryText,
+                selectedCategory === "Todos" && styles.categoryTextActive,
+              ]}
+            >
+              Todos
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+
+          {mockCategories.map((category) => {
+            const isSelected = selectedCategory === category.id;
+            return (
+              <Pressable
+                key={category.id}
+                style={[
+                  styles.categoryButton,
+                  isSelected && styles.categoryButtonActive,
+                ]}
+                onPress={() => setSelectedCategory(category.id)}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    isSelected && styles.categoryTextActive,
+                  ]}
+                >
+                  {category.emoji} {category.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <FlatList
         data={filteredItems}
@@ -144,6 +222,7 @@ export default function MenuScreen() {
         renderItem={({ item }) => (
           <ProductCard
             item={item}
+            isAdmin={isAdmin}
             onPress={() => openDetail(item)}
             onToggleAvailability={() => toggleAvailability(item)}
             onAddToCart={() => addToCart(item)}
@@ -159,18 +238,22 @@ export default function MenuScreen() {
       <ProductDetailModal
         item={detailItem}
         visible={detailVisible}
+        isAdmin={isAdmin}
         onClose={() => setDetailVisible(false)}
         onEdit={openEditForm}
         onDelete={handleDelete}
+        onAddToCart={(item) => addToCart(item)}
       />
 
-      <ProductFormModal
-        visible={formVisible}
-        categories={mockCategories}
-        initialItem={editingItem}
-        onClose={() => setFormVisible(false)}
-        onSave={handleSave}
-      />
+      {isAdmin && (
+        <ProductFormModal
+          visible={formVisible}
+          categories={mockCategories}
+          initialItem={editingItem}
+          onClose={() => setFormVisible(false)}
+          onSave={handleSave}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -199,7 +282,7 @@ const styles = StyleSheet.create({
   },
   grid: {
     paddingHorizontal: menuSpacing.sm,
-    paddingBottom: menuSpacing.xxl,
+    paddingBottom: 100,
   },
   emptyState: {
     padding: menuSpacing.xl,
@@ -210,15 +293,10 @@ const styles = StyleSheet.create({
     color: menuColors.textPrimary,
     marginBottom: menuSpacing.xs,
   },
-  emptyBody: {
-    ...menuTypography.body,
-    color: menuColors.textSecondary,
-    textAlign: "center",
-  },
   searchInput: {
     marginHorizontal: menuSpacing.lg,
     marginTop: menuSpacing.md,
-    marginBottom: menuSpacing.md,
+    marginBottom: menuSpacing.sm,
     paddingHorizontal: menuSpacing.md,
     paddingVertical: menuSpacing.sm,
     borderWidth: 1,
@@ -227,25 +305,33 @@ const styles = StyleSheet.create({
     backgroundColor: menuColors.background,
     color: menuColors.textPrimary,
   },
-  categoriesContainer: {
-    flexGrow: 0,
-    paddingHorizontal: menuSpacing.lg,
-    marginBottom: menuSpacing.lg,
+  categoriesWrapper: {
+    height: 50,
+    marginBottom: menuSpacing.md,
   },
   categoriesContent: {
-    paddingVertical: 4,
+    paddingHorizontal: menuSpacing.lg,
+    alignItems: "center",
   },
   categoryButton: {
     paddingHorizontal: menuSpacing.md,
-    height: 42,
+    height: 38,
     justifyContent: "center",
     borderRadius: menuRadius.md,
     backgroundColor: "#E5E5E5",
-    marginRight: 16,
+    marginRight: 10,
+  },
+  categoryButtonActive: {
+    backgroundColor: menuColors.accent,
   },
   categoryText: {
     ...menuTypography.body,
     color: menuColors.textPrimary,
+    fontSize: 13,
+  },
+  categoryTextActive: {
+    color: "#fff",
+    fontWeight: "bold",
   },
   addButton: {
     backgroundColor: menuColors.textPrimary,
@@ -259,5 +345,43 @@ const styles = StyleSheet.create({
     ...menuTypography.body,
     color: menuColors.background,
     fontWeight: "bold",
+  },
+  cartHeaderButton: {
+    width: 42,
+    height: 42,
+    borderRadius: menuRadius.md,
+    backgroundColor: "#C8E6C9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartHeaderButtonText: {
+    fontSize: 18,
+  },
+  cartBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: menuColors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  logoutRow: {
+    paddingHorizontal: menuSpacing.lg,
+    marginBottom: menuSpacing.sm,
+  },
+  logoutText: {
+    ...menuTypography.body,
+    fontSize: 13,
+    color: menuColors.danger,
+    fontWeight: "600",
   },
 });

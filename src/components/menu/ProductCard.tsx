@@ -10,6 +10,7 @@ import { MenuItem } from "../../types/menu";
 // Props = información y funciones que recibe este componente.
 type Props = {
   item: MenuItem;
+  isAdmin: boolean;
   onPress: () => void;
   onAddToCart: () => void;
   onToggleAvailability: () => void;
@@ -17,6 +18,7 @@ type Props = {
 
 export default function ProductCard({
   item,
+  isAdmin,
   onPress,
   onAddToCart,
   onToggleAvailability,
@@ -65,47 +67,37 @@ export default function ProductCard({
         </Text>
       </Pressable>
 
-      {/* 
-        Botón para agregar productos al carrito.
-
-        Si el producto está disponible:
-        - Se puede presionar.
-        - Ejecuta onAddToCart().
-
-        Si no está disponible:
-        - El botón queda deshabilitado.
+      {/*
+        Personal de cafetería (admin): controla la disponibilidad.
+        Cliente: agrega el producto al carrito.
+        Solo se muestra UNO de los dos botones según el rol.
       */}
-      <Pressable
-        style={[
-          styles.cartButton,
-          !item.available && styles.cartButtonDisabled,
-        ]}
-        onPress={onAddToCart}
-        disabled={!item.available}
-      >
-        <Text style={styles.cartButtonText}>
-          {item.available ? "Añadir +" : "No disponible"}
-        </Text>
-      </Pressable>
-
-      {/* 
-        Por ahora dejamos este botón para controlar
-        la disponibilidad del producto.
-
-        Más adelante, cuando separemos cliente y administrador,
-        este botón solamente será visible para el administrador.
-      */}
-      <Pressable
-        style={[
-          styles.availabilityButton,
-          !item.available && styles.unavailableButton,
-        ]}
-        onPress={onToggleAvailability}
-      >
-        <Text style={styles.availabilityText}>
-          {item.available ? "Disponible" : "No disponible"}
-        </Text>
-      </Pressable>
+      {isAdmin ? (
+        <Pressable
+          style={[
+            styles.availabilityButton,
+            !item.available && styles.unavailableButton,
+          ]}
+          onPress={onToggleAvailability}
+        >
+          <Text style={styles.availabilityText}>
+            {item.available ? "Disponible" : "No disponible"}
+          </Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={[
+            styles.cartButton,
+            !item.available && styles.cartButtonDisabled,
+          ]}
+          onPress={onAddToCart}
+          disabled={!item.available}
+        >
+          <Text style={styles.cartButtonText}>
+            {item.available ? "Añadir +" : "No disponible"}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }

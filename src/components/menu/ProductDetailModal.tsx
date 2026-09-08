@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import {
   menuColors,
@@ -19,23 +19,29 @@ import { MenuItem } from "../../types/menu";
 type Props = {
   item: MenuItem | null;
   visible: boolean;
+  isAdmin: boolean;
   onClose: () => void;
   onEdit: (item: MenuItem) => void;
   onDelete: (item: MenuItem) => void;
+  onAddToCart: (item: MenuItem) => void;
 };
 
 export default function ProductDetailModal({
   item,
   visible,
+  isAdmin,
   onClose,
   onEdit,
   onDelete,
+  onAddToCart,
 }: Props) {
   const scale = useRef(new Animated.Value(0)).current;
+  const [justAdded, setJustAdded] = useState(false);
 
   useEffect(() => {
     if (visible) {
       scale.setValue(0);
+      setJustAdded(false);
       Animated.spring(scale, {
         toValue: 1,
         friction: 5,
@@ -46,6 +52,12 @@ export default function ProductDetailModal({
   }, [visible, item?.id]);
 
   if (!item) return null;
+
+  const handleAddToCart = () => {
+    onAddToCart(item);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
+  };
 
   return (
     <Modal
@@ -94,20 +106,39 @@ export default function ProductDetailModal({
                 </View>
               )}
 
-              <View style={styles.actions}>
+              {isAdmin ? (
+                <View style={styles.actions}>
+                  <Pressable
+                    style={styles.editButton}
+                    onPress={() => onEdit(item)}
+                  >
+                    <Text style={styles.editButtonText}>Editar</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.deleteButton}
+                    onPress={() => onDelete(item)}
+                  >
+                    <Text style={styles.deleteButtonText}>Eliminar</Text>
+                  </Pressable>
+                </View>
+              ) : item.available ? (
                 <Pressable
-                  style={styles.editButton}
-                  onPress={() => onEdit(item)}
+                  style={[
+                    styles.addToCartButton,
+                    justAdded && styles.addToCartButtonAdded,
+                  ]}
+                  onPress={handleAddToCart}
+                  disabled={justAdded}
                 >
-                  <Text style={styles.editButtonText}>Editar</Text>
+                  <Text style={styles.addToCartButtonText}>
+                    {justAdded ? "✓ Agregado al carrito" : "Agregar al carrito"}
+                  </Text>
                 </Pressable>
-                <Pressable
-                  style={styles.deleteButton}
-                  onPress={() => onDelete(item)}
-                >
-                  <Text style={styles.deleteButtonText}>Eliminar</Text>
-                </Pressable>
-              </View>
+              ) : (
+                <View style={styles.unavailableTag}>
+                  <Text style={styles.unavailableTagText}>No disponible</Text>
+                </View>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -239,5 +270,30 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: menuColors.danger,
     fontWeight: "700",
+  },
+  addToCartButton: {
+    backgroundColor: menuColors.accent,
+    borderRadius: menuRadius.md,
+    paddingVertical: menuSpacing.md,
+    alignItems: "center",
+  },
+  addToCartButtonAdded: {
+    backgroundColor: "#4CAF50",
+  },
+  addToCartButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  unavailableTag: {
+    backgroundColor: "#E0E0E0",
+    borderRadius: menuRadius.md,
+    paddingVertical: menuSpacing.md,
+    alignItems: "center",
+  },
+  unavailableTagText: {
+    color: "#6B6B6B",
+    fontWeight: "700",
+    fontSize: 15,
   },
 });

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AdminLoginModal from "@/components/admin/AdminLoginModal";
 import {
   menuColors,
   menuRadius,
@@ -141,6 +142,7 @@ function PromoCarousel() {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [adminModalVisible, setAdminModalVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -148,21 +150,39 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
         <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
+
+        {/* Acceso de administrador: discreto a propósito, para que el
+            cliente no lo note ni le dé curiosidad tocarlo. */}
+        <Pressable
+          style={styles.adminButton}
+          onPress={() => setAdminModalVisible(true)}
+          hitSlop={10}
+        >
+          <Text style={styles.adminButtonText}>⚙</Text>
+        </Pressable>
       </View>
 
       {/* CARRUSEL */}
       <PromoCarousel />
 
       {/* BOTÓN */}
-      <Pressable 
-  style={styles.menuButton} 
-  onPress={() => {
-    console.log("BUTTON CLICKED!"); // <--- Let's see if the web is even registering the click
-    router.push("/menu");
-  }}
->
-  <Text style={styles.menuButtonText}>Ir al Menú</Text>
-</Pressable>
+      <Pressable
+        style={styles.menuButton}
+        onPress={() => {
+          router.push("/menu");
+        }}
+      >
+        <Text style={styles.menuButtonText}>Ir al Menú</Text>
+      </Pressable>
+
+      <AdminLoginModal
+        visible={adminModalVisible}
+        onClose={() => setAdminModalVisible(false)}
+        onSuccess={() => {
+          setAdminModalVisible(false);
+          router.push("/menu");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -183,9 +203,26 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     gap: 4,
+    position: "relative",
 
     // Separación entre encabezado y tarjeta
     marginBottom: 32,
+  },
+
+  // Botón discreto de acceso admin: chico, gris, esquina superior derecha.
+  adminButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  adminButtonText: {
+    fontSize: 15,
+    color: menuColors.border,
   },
 
   welcomeLabel: {
