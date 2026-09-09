@@ -1,5 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.0.67:3000/api";
-
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
@@ -18,7 +17,8 @@ const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   return data as T;
 };
 
-export const getMenu = () => request<import("../types/menu").MenuItem[]>("/menu");
+export const getMenu = () =>
+  request<import("../types/menu").MenuItem[]>("/menu");
 
 export const createMenuItem = (item: import("../types/menu").MenuItemDraft) =>
   request<import("../types/menu").MenuItem>("/menu", {
@@ -26,7 +26,10 @@ export const createMenuItem = (item: import("../types/menu").MenuItemDraft) =>
     body: JSON.stringify(item),
   });
 
-export const updateMenuItem = (id: string, item: import("../types/menu").MenuItemDraft) =>
+export const updateMenuItem = (
+  id: string,
+  item: import("../types/menu").MenuItemDraft,
+) =>
   request<import("../types/menu").MenuItem>(`/menu/${encodeURIComponent(id)}`, {
     method: "PUT",
     body: JSON.stringify(item),
