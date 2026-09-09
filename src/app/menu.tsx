@@ -25,8 +25,13 @@ import { useCart } from "../context/CartContext";
 import { mockCategories } from "../data/mockMenu"; // Mantenemos las categorías mock o tu fuente de categorías
 import { MenuItem, MenuItemDraft } from "../types/menu";
 import { confirmAction } from "../utils/crossPlatformConfirm";
-// Importa aquí tus funciones de API / servicio de base de datos, por ejemplo:
-// import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleItemAvailability } from "../services/menuService";
+import {
+  createMenuItem,
+  deleteMenuItem,
+  getMenu,
+  toggleItemAvailability,
+  updateMenuItem,
+} from "../services/api";
 
 export default function MenuScreen() {
   const router = useRouter();
@@ -59,8 +64,8 @@ export default function MenuScreen() {
   const loadMenuItems = async () => {
     try {
       setLoading(true);
-      // const data = await getMenuItems();
-      // setItems(data);
+      const data = await getMenu();
+      setItems(data);
     } catch (error) {
       console.error("Error al cargar el menú:", error);
     } finally {
@@ -103,14 +108,10 @@ export default function MenuScreen() {
   const toggleAvailability = async (item: MenuItem) => {
     if (!isAdmin) return;
     try {
-      // Actualización optimista en interfaz
+      const updated = await toggleItemAvailability(item.id, !item.available);
       setItems((prev) =>
-        prev.map((it) =>
-          it.id === item.id ? { ...it, available: !it.available } : it,
-        ),
+        prev.map((it) => (it.id === item.id ? updated : it)),
       );
-      // Llamada a la API / Base de datos
-      // await toggleItemAvailability(item.id, !item.available);
     } catch (error) {
       console.error("Error al cambiar disponibilidad:", error);
       loadMenuItems(); // Revertir en caso de error recargando
@@ -128,15 +129,12 @@ export default function MenuScreen() {
     if (!isAdmin) return;
     try {
       if (id) {
-        // Actualizar en API / Base de datos
-        // await updateMenuItem(id, draft);
+        const updated = await updateMenuItem(id, draft);
         setItems((prev) =>
-          prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
+          prev.map((it) => (it.id === id ? updated : it)),
         );
       } else {
-        // Crear en API / Base de datos
-        // const newItem = await createMenuItem(draft);
-        const newItem: MenuItem = { ...draft, id: `item-${Date.now()}` };
+        const newItem = await createMenuItem(draft);
         setItems((prev) => [newItem, ...prev]);
       }
       setFormVisible(false);
@@ -152,8 +150,7 @@ export default function MenuScreen() {
       `¿Quitar "${item.name}" del menú?`,
       async () => {
         try {
-          // Eliminar en API / Base de datos
-          // await deleteMenuItem(item.id);
+          await deleteMenuItem(item.id);
           setItems((prev) => prev.filter((it) => it.id !== item.id));
           setDetailVisible(false);
         } catch (error) {
