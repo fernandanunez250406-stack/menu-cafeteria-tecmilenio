@@ -94,10 +94,10 @@ export default function ProductDetailModal({
               <Text style={styles.name}>{item.name}</Text>
               <Text style={styles.description}>{item.description}</Text>
 
-              {item.specs.length > 0 && (
+              {(item.specs ?? []).length > 0 && (
                 <View style={styles.specsBlock}>
                   <Text style={styles.sectionLabel}>ESPECIFICACIONES</Text>
-                  {item.specs.map((spec, i) => (
+                  {item.specs!.map((spec, i) => (
                     <View key={i} style={styles.specRow}>
                       <Text style={styles.specLabel}>{spec.label}</Text>
                       <Text style={styles.specValue}>{spec.value}</Text>

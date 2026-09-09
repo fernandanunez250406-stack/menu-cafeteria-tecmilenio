@@ -271,10 +271,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // =========================
-  // PUNTOS
-  // =========================
-
   dots: {
     flexDirection: "row",
     justifyContent: "center",
@@ -294,10 +290,6 @@ const styles = StyleSheet.create({
     backgroundColor: menuColors.accent,
     width: 18,
   },
-
-  // =========================
-  // BOTÓN
-  // =========================
 
   menuButton: {
     backgroundColor: menuColors.accent,

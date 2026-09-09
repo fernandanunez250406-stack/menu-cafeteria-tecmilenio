@@ -22,17 +22,24 @@ import {
 } from "../constants/menuTheme";
 import { useAdmin } from "../context/AdminContext";
 import { useCart } from "../context/CartContext";
-import { mockCategories, mockMenuItems } from "../data/mockMenu";
+import { mockCategories } from "../data/mockMenu"; // Mantenemos las categorías mock o tu fuente de categorías
 import { MenuItem, MenuItemDraft } from "../types/menu";
 import { confirmAction } from "../utils/crossPlatformConfirm";
+// Importa aquí tus funciones de API / servicio de base de datos, por ejemplo:
+// import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, toggleItemAvailability } from "../services/menuService";
 
 export default function MenuScreen() {
   const router = useRouter();
   const { isAdmin, logout } = useAdmin();
   const { addToCart, totalItems } = useCart();
-  const [items, setItems] = useState<MenuItem[]>(mockMenuItems);
+
+  // Cambiamos el estado inicial de mockMenuItems a un array vacío para llenarlo desde la API/Base de datos
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
+
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.name
       .toLowerCase()
@@ -47,6 +54,23 @@ export default function MenuScreen() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+
+  // Función para cargar los productos desde la API / Base de datos
+  const loadMenuItems = async () => {
+    try {
+      setLoading(true);
+      // const data = await getMenuItems();
+      // setItems(data);
+    } catch (error) {
+      console.error("Error al cargar el menú:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMenuItems();
+  }, []);
 
   const cartScale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -76,13 +100,21 @@ export default function MenuScreen() {
     setDetailVisible(true);
   };
 
-  const toggleAvailability = (item: MenuItem) => {
+  const toggleAvailability = async (item: MenuItem) => {
     if (!isAdmin) return;
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === item.id ? { ...it, available: !it.available } : it,
-      ),
-    );
+    try {
+      // Actualización optimista en interfaz
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === item.id ? { ...it, available: !it.available } : it,
+        ),
+      );
+      // Llamada a la API / Base de datos
+      // await toggleItemAvailability(item.id, !item.available);
+    } catch (error) {
+      console.error("Error al cambiar disponibilidad:", error);
+      loadMenuItems(); // Revertir en caso de error recargando
+    }
   };
 
   const openEditForm = (item: MenuItem) => {
@@ -92,17 +124,25 @@ export default function MenuScreen() {
     setFormVisible(true);
   };
 
-  const handleSave = (draft: MenuItemDraft, id?: string) => {
+  const handleSave = async (draft: MenuItemDraft, id?: string) => {
     if (!isAdmin) return;
-    if (id) {
-      setItems((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
-      );
-    } else {
-      const newItem: MenuItem = { ...draft, id: `item-${Date.now()}` };
-      setItems((prev) => [newItem, ...prev]);
+    try {
+      if (id) {
+        // Actualizar en API / Base de datos
+        // await updateMenuItem(id, draft);
+        setItems((prev) =>
+          prev.map((it) => (it.id === id ? { ...it, ...draft } : it)),
+        );
+      } else {
+        // Crear en API / Base de datos
+        // const newItem = await createMenuItem(draft);
+        const newItem: MenuItem = { ...draft, id: `item-${Date.now()}` };
+        setItems((prev) => [newItem, ...prev]);
+      }
+      setFormVisible(false);
+    } catch (error) {
+      console.error("Error al guardar el producto:", error);
     }
-    setFormVisible(false);
   };
 
   const handleDelete = (item: MenuItem) => {
@@ -110,9 +150,15 @@ export default function MenuScreen() {
     confirmAction(
       "Eliminar producto",
       `¿Quitar "${item.name}" del menú?`,
-      () => {
-        setItems((prev) => prev.filter((it) => it.id !== item.id));
-        setDetailVisible(false);
+      async () => {
+        try {
+          // Eliminar en API / Base de datos
+          // await deleteMenuItem(item.id);
+          setItems((prev) => prev.filter((it) => it.id !== item.id));
+          setDetailVisible(false);
+        } catch (error) {
+          console.error("Error al eliminar el producto:", error);
+        }
       },
       "Eliminar",
     );
@@ -230,7 +276,11 @@ export default function MenuScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No hay productos aquí todavía</Text>
+            <Text style={styles.emptyTitle}>
+              {loading
+                ? "Cargando productos..."
+                : "No hay productos aquí todavía"}
+            </Text>
           </View>
         }
       />
