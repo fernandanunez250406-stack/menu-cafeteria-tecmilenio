@@ -92,8 +92,6 @@ function PromoCarousel() {
         bounces={false}
         keyExtractor={(item) => item.id}
         getItemLayout={(_, index) => ({
-          // IMPORTANTE:
-          // Cada página ocupa TODO el ancho disponible.
           length: CONTAINER_WIDTH,
           offset: CONTAINER_WIDTH * index,
           index,
@@ -106,9 +104,7 @@ function PromoCarousel() {
           setActiveIndex(newIndex);
         }}
         renderItem={({ item }) => (
-          // Este View representa UNA PÁGINA COMPLETA.
           <View style={styles.slideWrapper}>
-            {/* La tarjeta es más delgada y queda centrada */}
             <View
               style={[
                 styles.promoCard,
@@ -143,22 +139,26 @@ function PromoCarousel() {
 export default function HomeScreen() {
   const router = useRouter();
   const [adminModalVisible, setAdminModalVisible] = useState(false);
+  const [lastPressTime, setLastPressTime] = useState(0);
+
+  // Detecta doble clic (web) o doble toque rápido (móvil) en el título
+  const handleAdminSecretTrigger = () => {
+    const now = Date.now();
+    if (now - lastPressTime < 400) {
+      setAdminModalVisible(true);
+    }
+    setLastPressTime(now);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* ENCABEZADO */}
       <View style={styles.header}>
         <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
-        <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
 
-        {/* Acceso de administrador: discreto a propósito, para que el
-            cliente no lo note ni le dé curiosidad tocarlo. */}
-        <Pressable
-          style={styles.adminButton}
-          onPress={() => setAdminModalVisible(true)}
-          hitSlop={10}
-        >
-          <Text style={styles.adminButtonText}>⚙</Text>
+        {/* Título interactivo y oculto para el admin */}
+        <Pressable onPress={handleAdminSecretTrigger} hitSlop={10}>
+          <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
         </Pressable>
       </View>
 
@@ -203,26 +203,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     gap: 4,
-    position: "relative",
-
-    // Separación entre encabezado y tarjeta
     marginBottom: 32,
-  },
-
-  // Botón discreto de acceso admin: chico, gris, esquina superior derecha.
-  adminButton: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  adminButtonText: {
-    fontSize: 15,
-    color: menuColors.border,
   },
 
   welcomeLabel: {
@@ -250,8 +231,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Cada slide ocupa TODO el ancho.
-  // Esto evita que aparezca el borde del siguiente.
   slideWrapper: {
     width: CONTAINER_WIDTH,
     alignItems: "center",
@@ -265,13 +244,10 @@ const styles = StyleSheet.create({
   promoCard: {
     backgroundColor: menuColors.accentSoft,
     borderRadius: menuRadius.lg,
-
     paddingHorizontal: menuSpacing.lg,
     paddingVertical: 30,
-
     alignItems: "center",
     justifyContent: "center",
-
     gap: menuSpacing.sm,
   },
 
@@ -303,10 +279,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-
     gap: 6,
-
-    // Separación de la tarjeta
     marginTop: 14,
   },
 
@@ -328,14 +301,9 @@ const styles = StyleSheet.create({
 
   menuButton: {
     backgroundColor: menuColors.accent,
-
     paddingVertical: menuSpacing.md + 4,
-
     borderRadius: menuRadius.md,
-
     alignItems: "center",
-
-    // Lo mantiene abajo de la pantalla
     marginTop: "auto",
   },
 
