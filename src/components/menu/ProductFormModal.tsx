@@ -19,7 +19,7 @@ import {
   menuSpacing,
   menuTypography,
 } from "../../constants/menuTheme";
-import { MenuCategory, MenuItem, MenuItemDraft } from "../../types/menu";
+import { MenuCategory, MenuItem, MenuItemDraft, MenuSpec, } from "../../types/menu";
 
 type Props = {
   visible: boolean;
@@ -90,10 +90,62 @@ export default function ProductFormModal({
     setDraft((d) => ({ ...d, photoUri: null }));
   };
 
+  const addSpec = () => {
+    setDraft((d) => ({
+      ...d,
+      specs: [
+        ...d.specs,
+        {
+          label: "",
+          value: "",
+        },
+      ],
+    }));
+  };
+
+  const updateSpec = (
+    index: number,
+    field: keyof MenuSpec,
+    text: string,
+  ) => {
+    setDraft((d) => {
+      const updatedSpecs = [...d.specs];
+
+      updatedSpecs[index] = {
+        ...updatedSpecs[index],
+        [field]: text,
+      };
+
+      return {
+        ...d,
+        specs: updatedSpecs,
+      };
+    });
+  };
+
+  const removeSpec = (index: number) => {
+    setDraft((d) => ({
+      ...d,
+      specs: d.specs.filter((_, i) => i !== index),
+    }));
+  };
   const handleSave = () => {
-    if (!draft.name.trim()) return;
-    const parsedPrice = parseFloat(priceText.replace(",", ".")) || 0;
-    onSave({ ...draft, price: parsedPrice }, initialItem?.id);
+    if(!draft.name.trim()) return;
+
+    const parsedPrice = parseFloat(priceText.replace(",",".")) || 0;
+
+    const cleanSpecs = draft.specs.filter(
+      (spec) => spec.label.trim() && spec.value.trim(),
+    );
+
+    onSave(
+      {
+        ...draft,
+        price: parsedPrice,
+        specs: cleanSpecs,
+      },
+      initialItem?.id,
+    );
   };
 
   return (
@@ -210,6 +262,50 @@ export default function ProductFormModal({
                 multiline
                 numberOfLines={3}
               />
+            </Field>
+
+            <Field label="Especificaciones">
+              <View style={styles.specsContainer}>
+                {draft.specs.map((spec, index) => (
+                  <View key={index} style={styles.specRow}>
+                    <TextInput
+                      style={[styles.input, styles.specInput]}
+                      value={spec.label}
+                        onChangeText={(text) =>
+                          updateSpec(index, "label", text)
+                        }
+                        placeholder="Ej. Tamaño"
+                        placeholderTextColor={menuColors.textSecondary}
+                    />
+
+                    <TextInput
+                      style={[styles.input, styles.specInput]}
+                      value={spec.value}
+                      onChangeText={(text) =>
+                        updateSpec(index, "value", text)
+                      }
+                      placeholder="Ej. Grande"
+                      placeholderTextColor={menuColors.textSecondary}
+                      />
+
+                    <Pressable
+                      onPress={() => removeSpec(index)}
+                      style={styles.removeSpecButton}
+                    >
+                      <Text style={styles.removeSpecText}>🗑️</Text>
+                    </Pressable>
+                  </View>
+                ))}
+
+                <Pressable
+                  style={styles.addSpecButton}
+                  onPress={addSpec}
+                >
+                  <Text style={styles.addSpecText}>
+                    + Agregar especificación
+                  </Text>
+                </Pressable>
+              </View>
             </Field>
 
             <Pressable style={styles.saveButton} onPress={handleSave}>
@@ -372,5 +468,39 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     fontSize: 15,
+  },
+  specsContainer: {
+  gap: menuSpacing.sm,
+  },
+  specRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: menuSpacing.sm,
+  },
+  specInput: {
+    flex: 1,
+  },
+  removeSpecButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: menuColors.dangerSoft,
+    borderRadius: menuRadius.md,
+  },
+  removeSpecText: {
+    fontSize: 18,
+  },
+  addSpecButton: {
+    borderWidth: 1,
+    borderColor: menuColors.accent,
+    borderRadius: menuRadius.md,
+    borderStyle: "dashed",
+    paddingVertical: menuSpacing.md,
+    alignItems: "center",
+  },
+  addSpecText: {
+    color: menuColors.accent,
+    fontWeight: "700",
   },
 });
