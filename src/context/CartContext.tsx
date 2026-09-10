@@ -32,7 +32,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       if (existingItem) {
         if (existingItem.quantity >= 3) {
-          alert("Has llegado al máximo de 3 unidades para este producto.");
+          alert("Oops, llegaste a tu limite del producto por ahora.");
           return currentItems;
         }
 
@@ -52,7 +52,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       currentItems.map((item) => {
         if (item.product.id === productId) {
           if (item.quantity >= 3) {
-            alert("Has llegado al máximo de 3 unidades para este producto.");
+            alert("Oops, llegaste a tu limite del producto por ahora.");
             return item;
           }
           return { ...item, quantity: item.quantity + 1 };
