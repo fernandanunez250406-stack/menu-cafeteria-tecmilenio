@@ -45,3 +45,4 @@ example
 # Firebase / backend secrets
 servidor/.env
 servidor/serviceAccountKey.json
+.env
