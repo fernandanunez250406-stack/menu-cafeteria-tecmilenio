@@ -51,27 +51,6 @@ const normalizeOption = (option: any, index: number, specId: string) => {
   };
 };
 
-/**
- * Normaliza una especificación.
- *
- * Soporta:
- *
- * Formato nuevo:
- * {
- *   id,
- *   label,
- *   options: [...]
- * }
- *
- * Formato antiguo:
- * {
- *   label,
- *   value
- * }
- *
- * El formato antiguo se convierte automáticamente
- * en una especificación con una sola opción.
- */
 const normalizeSpec = (spec: any, specIndex: number) => {
   if (!spec || typeof spec !== "object") {
     return null;
@@ -144,31 +123,6 @@ const normalizeSpec = (spec: any, specIndex: number) => {
     };
   }
 
-  /**
-   * FORMATO ANTIGUO
-   *
-   * Antes la aplicación manejaba:
-   *
-   * {
-   *   label: "Tipo de leche",
-   *   value: "Leche entera"
-   * }
-   *
-   * Lo convertimos a:
-   *
-   * {
-   *   id: "...",
-   *   label: "Tipo de leche",
-   *   options: [
-   *     {
-   *       id: "...",
-   *       label: "Leche entera",
-   *       price: 0,
-   *       isDefault: true
-   *     }
-   *   ]
-   * }
-   */
   const oldValue = String(spec.value ?? "").trim();
 
   if (oldValue) {
