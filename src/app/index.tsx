@@ -158,7 +158,7 @@ export default function HomeScreen() {
 
         {/* Título interactivo y oculto para el admin */}
         <Pressable onPress={handleAdminSecretTrigger} hitSlop={10}>
-          <Text style={styles.brandTitle}>Cafetería Tecmilenio</Text>
+          <Text style={styles.brandTitle}>Mas Café</Text>
         </Pressable>
       </View>
 
