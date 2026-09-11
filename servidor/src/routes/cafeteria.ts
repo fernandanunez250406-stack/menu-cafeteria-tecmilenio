@@ -6,8 +6,209 @@ const router = Router();
 const menuCollection = db.collection("menu");
 
 /**
- * Convierte documentos antiguos y nuevos de Firebase
- * al formato que utiliza actualmente la aplicación.
+ * Genera un ID sencillo para especificaciones y opciones.
+ */
+const createId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+/**
+ * Normaliza una opción individual.
+ *
+ * Formato actual:
+ * {
+ *   id: string,
+ *   label: string,
+ *   price: number,
+ *   isDefault?: boolean
+ * }
+ */
+const normalizeOption = (option: any, index: number, specId: string) => {
+  if (!option || typeof option !== "object") {
+    return null;
+  }
+
+  const label = String(option.label ?? "").trim();
+
+  if (!label) {
+    return null;
+  }
+
+  const rawPrice = Number(option.price);
+
+  const price = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : 0;
+
+  return {
+    id:
+      typeof option.id === "string" && option.id.trim()
+        ? option.id.trim()
+        : createId(`option-${specId}-${index}`),
+
+    label,
+
+    price,
+
+    isDefault: Boolean(option.isDefault),
+  };
+};
+
+/**
+ * Normaliza una especificación.
+ *
+ * Soporta:
+ *
+ * Formato nuevo:
+ * {
+ *   id,
+ *   label,
+ *   options: [...]
+ * }
+ *
+ * Formato antiguo:
+ * {
+ *   label,
+ *   value
+ * }
+ *
+ * El formato antiguo se convierte automáticamente
+ * en una especificación con una sola opción.
+ */
+const normalizeSpec = (spec: any, specIndex: number) => {
+  if (!spec || typeof spec !== "object") {
+    return null;
+  }
+
+  const label = String(spec.label ?? "").trim();
+
+  if (!label) {
+    return null;
+  }
+
+  const specId =
+    typeof spec.id === "string" && spec.id.trim()
+      ? spec.id.trim()
+      : createId(`spec-${specIndex}`);
+
+  /**
+   * FORMATO NUEVO
+   */
+  if (Array.isArray(spec.options)) {
+    const options = spec.options
+      .map((option: any, optionIndex: number) =>
+        normalizeOption(option, optionIndex, specId),
+      )
+      .filter(
+        (
+          option: ReturnType<typeof normalizeOption>,
+        ): option is NonNullable<ReturnType<typeof normalizeOption>> =>
+          option !== null,
+      );
+
+    if (options.length === 0) {
+      return null;
+    }
+
+    /**
+     * Garantizamos que exista una opción default.
+     *
+     * Si ninguna viene marcada como default,
+     * la primera será la predeterminada.
+     */
+    const hasDefault = options.some(
+      (option: {
+        id: string;
+        label: string;
+        price: number;
+        isDefault: boolean;
+      }) => option.isDefault,
+    );
+
+    const normalizedOptions = options.map(
+      (
+        option: {
+          id: string;
+          label: string;
+          price: number;
+          isDefault: boolean;
+        },
+        index: number,
+      ) => ({
+        ...option,
+        isDefault: hasDefault ? option.isDefault : index === 0,
+      }),
+    );
+
+    return {
+      id: specId,
+      label,
+      options: normalizedOptions,
+    };
+  }
+
+  /**
+   * FORMATO ANTIGUO
+   *
+   * Antes la aplicación manejaba:
+   *
+   * {
+   *   label: "Tipo de leche",
+   *   value: "Leche entera"
+   * }
+   *
+   * Lo convertimos a:
+   *
+   * {
+   *   id: "...",
+   *   label: "Tipo de leche",
+   *   options: [
+   *     {
+   *       id: "...",
+   *       label: "Leche entera",
+   *       price: 0,
+   *       isDefault: true
+   *     }
+   *   ]
+   * }
+   */
+  const oldValue = String(spec.value ?? "").trim();
+
+  if (oldValue) {
+    return {
+      id: specId,
+      label,
+      options: [
+        {
+          id: createId(`option-${specId}`),
+          label: oldValue,
+          price: 0,
+          isDefault: true,
+        },
+      ],
+    };
+  }
+
+  return null;
+};
+
+/**
+ * Normaliza todas las especificaciones de un producto.
+ */
+const normalizeSpecs = (specs: any) => {
+  if (!Array.isArray(specs)) {
+    return [];
+  }
+
+  return specs
+    .map((spec: any, index: number) => normalizeSpec(spec, index))
+    .filter(
+      (
+        spec: ReturnType<typeof normalizeSpec>,
+      ): spec is NonNullable<ReturnType<typeof normalizeSpec>> => spec !== null,
+    );
+};
+
+/**
+ * Convierte documentos de Firebase al formato actual
+ * que utiliza la aplicación.
  */
 const normalizeMenuItem = (data: any) => {
   return {
@@ -25,19 +226,7 @@ const normalizeMenuItem = (data: any) => {
 
     description: String(data.description ?? "").trim(),
 
-    specs: Array.isArray(data.specs)
-      ? data.specs
-          .filter(
-            (spec: any) =>
-              spec &&
-              String(spec.label ?? "").trim() &&
-              String(spec.value ?? "").trim(),
-          )
-          .map((spec: any) => ({
-            label: String(spec.label).trim(),
-            value: String(spec.value).trim(),
-          }))
-      : [],
+    specs: normalizeSpecs(data.specs),
 
     available: data.available !== false,
   };
@@ -59,19 +248,7 @@ const cleanMenuItem = (body: any) => ({
 
   description: String(body.description ?? "").trim(),
 
-  specs: Array.isArray(body.specs)
-    ? body.specs
-        .filter(
-          (spec: any) =>
-            spec &&
-            String(spec.label ?? "").trim() &&
-            String(spec.value ?? "").trim(),
-        )
-        .map((spec: any) => ({
-          label: String(spec.label).trim(),
-          value: String(spec.value).trim(),
-        }))
-    : [],
+  specs: normalizeSpecs(body.specs),
 
   available: body.available !== false,
 });
@@ -92,15 +269,61 @@ const validateMenuItem = (item: any) => {
     return "La categoría es obligatoria";
   }
 
+  /**
+   * Validamos las especificaciones.
+   */
+  if (!Array.isArray(item.specs)) {
+    return "Las especificaciones no son válidas";
+  }
+
+  for (let specIndex = 0; specIndex < item.specs.length; specIndex++) {
+    const spec = item.specs[specIndex];
+
+    if (!spec || !String(spec.label ?? "").trim()) {
+      return `La especificación ${specIndex + 1} no tiene nombre`;
+    }
+
+    if (!Array.isArray(spec.options) || spec.options.length === 0) {
+      return `La especificación "${spec.label}" debe tener al menos una opción`;
+    }
+
+    const hasDefault = spec.options.some(
+      (option: any) => option.isDefault === true,
+    );
+
+    if (!hasDefault) {
+      return `La especificación "${spec.label}" debe tener una opción predeterminada`;
+    }
+
+    for (
+      let optionIndex = 0;
+      optionIndex < spec.options.length;
+      optionIndex++
+    ) {
+      const option = spec.options[optionIndex];
+
+      if (!option || !String(option.label ?? "").trim()) {
+        return `La opción ${
+          optionIndex + 1
+        } de "${spec.label}" no tiene nombre`;
+      }
+
+      if (!Number.isFinite(option.price) || option.price < 0) {
+        return `El precio de "${option.label}" no es válido`;
+      }
+    }
+  }
+
   return null;
 };
 
 /**
  * GET /api/menu
+ *
  * Obtiene todos los productos de Firebase.
  *
- * También convierte automáticamente productos antiguos
- * que utilizan producto/precio/categoría.
+ * Los productos antiguos se convierten automáticamente
+ * al formato nuevo.
  */
 router.get("/menu", async (_req: Request, res: Response) => {
   try {
@@ -114,6 +337,7 @@ router.get("/menu", async (_req: Request, res: Response) => {
     res.json(menu);
   } catch (error) {
     console.error("GET /menu", error);
+
     res.status(500).json({
       error: "Error al obtener el menú",
     });
@@ -122,7 +346,8 @@ router.get("/menu", async (_req: Request, res: Response) => {
 
 /**
  * POST /api/menu
- * Crea un producto nuevo en Firebase.
+ *
+ * Crea un producto nuevo.
  */
 router.post("/menu", async (req: Request, res: Response) => {
   try {
@@ -159,6 +384,7 @@ router.post("/menu", async (req: Request, res: Response) => {
 
 /**
  * PUT /api/menu/:id
+ *
  * Actualiza un producto existente.
  */
 router.put("/menu/:id", async (req: Request, res: Response) => {
@@ -174,11 +400,13 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const body = req.body ?? {};
+
     const currentData = current.data() ?? {};
 
-    /*
-     * Primero normalizamos el documento existente.
-     * Esto permite editar también productos antiguos.
+    /**
+     * Normalizamos primero el producto
+     * existente. Esto permite editar productos
+     * antiguos sin perder sus datos.
      */
     const normalizedCurrent = normalizeMenuItem(currentData);
 
@@ -215,7 +443,8 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/menu/:id
- * Elimina un producto de Firebase.
+ *
+ * Elimina un producto.
  */
 router.delete("/menu/:id", async (req: Request, res: Response) => {
   try {
@@ -245,6 +474,7 @@ router.delete("/menu/:id", async (req: Request, res: Response) => {
 
 /**
  * POST /api/orders
+ *
  * Crea una orden en Firebase.
  */
 router.post("/orders", async (req: Request, res: Response) => {

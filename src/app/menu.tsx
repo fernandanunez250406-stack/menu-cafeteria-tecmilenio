@@ -23,8 +23,6 @@ import {
 import { useAdmin } from "../context/AdminContext";
 import { useCart } from "../context/CartContext";
 import { mockCategories } from "../data/mockMenu"; // Mantenemos las categorías mock o tu fuente de categorías
-import { MenuItem, MenuItemDraft } from "../types/menu";
-import { confirmAction } from "../utils/crossPlatformConfirm";
 import {
   createMenuItem,
   deleteMenuItem,
@@ -32,6 +30,8 @@ import {
   toggleItemAvailability,
   updateMenuItem,
 } from "../services/api";
+import { MenuItem, MenuItemDraft } from "../types/menu";
+import { confirmAction } from "../utils/crossPlatformConfirm";
 
 export default function MenuScreen() {
   const router = useRouter();
@@ -109,9 +109,7 @@ export default function MenuScreen() {
     if (!isAdmin) return;
     try {
       const updated = await toggleItemAvailability(item.id, !item.available);
-      setItems((prev) =>
-        prev.map((it) => (it.id === item.id ? updated : it)),
-      );
+      setItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
     } catch (error) {
       console.error("Error al cambiar disponibilidad:", error);
       loadMenuItems(); // Revertir en caso de error recargando
@@ -130,9 +128,7 @@ export default function MenuScreen() {
     try {
       if (id) {
         const updated = await updateMenuItem(id, draft);
-        setItems((prev) =>
-          prev.map((it) => (it.id === id ? updated : it)),
-        );
+        setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
       } else {
         const newItem = await createMenuItem(draft);
         setItems((prev) => [newItem, ...prev]);
@@ -289,7 +285,10 @@ export default function MenuScreen() {
         onClose={() => setDetailVisible(false)}
         onEdit={openEditForm}
         onDelete={handleDelete}
-        onAddToCart={(item) => addToCart(item)}
+        onAddToCart={(item, selectedOptions) => {
+          addToCart(item, selectedOptions);
+          setDetailVisible(false);
+        }}
       />
 
       {isAdmin && (

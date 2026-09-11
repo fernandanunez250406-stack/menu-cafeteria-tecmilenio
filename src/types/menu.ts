@@ -4,9 +4,17 @@ export type MenuCategory = {
   emoji: string;
 };
 
-export type MenuSpec = {
+export type MenuSpecOption = {
+  id: string;
   label: string;
-  value: string;
+  price: number;
+  isDefault?: boolean;
+};
+
+export type MenuSpec = {
+  id: string;
+  label: string;
+  options: MenuSpecOption[];
 };
 
 export type MenuItem = {
