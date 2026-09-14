@@ -5,23 +5,9 @@ const router = Router();
 
 const menuCollection = db.collection("menu");
 
-/**
- * Genera un ID sencillo para especificaciones y opciones.
- */
 const createId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-/**
- * Normaliza una opción individual.
- *
- * Formato actual:
- * {
- *   id: string,
- *   label: string,
- *   price: number,
- *   isDefault?: boolean
- * }
- */
 const normalizeOption = (option: any, index: number, specId: string) => {
   if (!option || typeof option !== "object") {
     return null;
@@ -67,9 +53,6 @@ const normalizeSpec = (spec: any, specIndex: number) => {
       ? spec.id.trim()
       : createId(`spec-${specIndex}`);
 
-  /**
-   * FORMATO NUEVO
-   */
   if (Array.isArray(spec.options)) {
     const options = spec.options
       .map((option: any, optionIndex: number) =>
@@ -86,12 +69,6 @@ const normalizeSpec = (spec: any, specIndex: number) => {
       return null;
     }
 
-    /**
-     * Garantizamos que exista una opción default.
-     *
-     * Si ninguna viene marcada como default,
-     * la primera será la predeterminada.
-     */
     const hasDefault = options.some(
       (option: {
         id: string;
@@ -143,9 +120,6 @@ const normalizeSpec = (spec: any, specIndex: number) => {
   return null;
 };
 
-/**
- * Normaliza todas las especificaciones de un producto.
- */
 const normalizeSpecs = (specs: any) => {
   if (!Array.isArray(specs)) {
     return [];
@@ -186,9 +160,6 @@ const normalizeMenuItem = (data: any) => {
   };
 };
 
-/**
- * Limpia y prepara los datos enviados por la aplicación.
- */
 const cleanMenuItem = (body: any) => ({
   categoryId: String(body.categoryId ?? "").trim(),
 
@@ -207,9 +178,6 @@ const cleanMenuItem = (body: any) => ({
   available: body.available !== false,
 });
 
-/**
- * Valida los datos de un producto.
- */
 const validateMenuItem = (item: any) => {
   if (!item.name) {
     return "El nombre del producto es obligatorio";

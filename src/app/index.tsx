@@ -1,16 +1,20 @@
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+
 import {
   Dimensions,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
+
 import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
 
 type Promo = {
@@ -41,15 +45,25 @@ const promos: Promo[] = [
   },
 ];
 
-const { width: screenWidth } = Dimensions.get("window");
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+const IS_WEB = Platform.OS === "web";
 
 const CONTAINER_WIDTH = screenWidth - menuSpacing.lg * 2;
-const SLIDE_WIDTH = CONTAINER_WIDTH * 0.88;
-const SLIDE_HEIGHT = SLIDE_WIDTH * 1.45;
+
+const SLIDE_WIDTH = IS_WEB
+  ? Math.min(CONTAINER_WIDTH * 0.65, 520)
+  : CONTAINER_WIDTH * 0.88;
+
+const SLIDE_HEIGHT = IS_WEB
+  ? Math.min(screenHeight * 0.42, 360)
+  : SLIDE_WIDTH * 1.45;
+
 const SLIDE_INTERVAL_MS = 4000;
 
 function PromoCarousel() {
   const [activeIndex, setActiveIndex] = useState(0);
+
   const listRef = useRef<FlatList<Promo>>(null);
 
   useEffect(() => {
@@ -129,36 +143,47 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const [adminModalVisible, setAdminModalVisible] = useState(false);
-  const [lastPressTime, setLastPressTime] = useState(0);
 
-  // Detecta doble clic en web o doble toque rápido en móvil
-  // para abrir el acceso oculto de administrador.
+  // Doble toque para móvil
+  const lastPressTimeRef = useRef(0);
+
   const handleAdminSecretTrigger = () => {
     const now = Date.now();
 
-    if (now - lastPressTime < 400) {
+    if (now - lastPressTimeRef.current < 600) {
       setAdminModalVisible(true);
+      lastPressTimeRef.current = 0;
+      return;
     }
 
-    setLastPressTime(now);
+    lastPressTimeRef.current = now;
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* ENCABEZADO */}
+      {/* =========================
+          ENCABEZADO
+      ========================= */}
+
       <View style={styles.header}>
         <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
 
-        {/* Título interactivo y oculto para el admin */}
-        <Pressable onPress={handleAdminSecretTrigger} hitSlop={10}>
+        {/* Acceso oculto para móvil */}
+        <Pressable onPress={handleAdminSecretTrigger} hitSlop={15}>
           <Text style={styles.brandTitle}>Mas Café</Text>
         </Pressable>
       </View>
 
-      {/* CARRUSEL */}
+      {/* =========================
+          CARRUSEL
+      ========================= */}
+
       <PromoCarousel />
 
-      {/* BOTÓN */}
+      {/* =========================
+          BOTÓN MENÚ
+      ========================= */}
+
       <Pressable
         style={({ pressed }) => [
           styles.menuButton,
@@ -170,6 +195,26 @@ export default function HomeScreen() {
       >
         <Text style={styles.menuButtonText}>Ir al Menú</Text>
       </Pressable>
+
+      {/* =========================
+          ACCESO ADMINISTRADOR WEB
+      ========================= */}
+
+      {Platform.OS === "web" && (
+        <Pressable
+          onPress={() => setAdminModalVisible(true)}
+          style={({ pressed }) => [
+            styles.webAdminButton,
+            pressed && styles.webAdminButtonPressed,
+          ]}
+        >
+          <Text style={styles.webAdminText}>Administrador</Text>
+        </Pressable>
+      )}
+
+      {/* =========================
+          LOGIN ADMINISTRADOR
+      ========================= */}
 
       <AdminLoginModal
         visible={adminModalVisible}
@@ -188,8 +233,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: menuSpacing.lg,
-    paddingTop: menuSpacing.xl,
-    paddingBottom: menuSpacing.xl,
+    paddingTop: IS_WEB ? menuSpacing.md : menuSpacing.xl,
+    paddingBottom: IS_WEB ? menuSpacing.md : menuSpacing.xl,
   },
 
   // =========================
@@ -199,7 +244,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     gap: 4,
-    marginBottom: 32,
+    marginBottom: IS_WEB ? 18 : 32,
   },
 
   welcomeLabel: {
@@ -243,14 +288,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DDDDDD",
     paddingHorizontal: menuSpacing.lg,
-    paddingVertical: 30,
+    paddingVertical: IS_WEB ? 20 : 30,
     alignItems: "center",
     justifyContent: "center",
     gap: menuSpacing.sm,
   },
 
   promoEmoji: {
-    fontSize: 38,
+    fontSize: IS_WEB ? 32 : 38,
     textAlign: "center",
     alignSelf: "center",
     marginBottom: 4,
@@ -279,7 +324,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
-    marginTop: 14,
+    marginTop: 10,
   },
 
   dot: {
@@ -314,5 +359,24 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
+  },
+
+  // =========================
+  // ADMINISTRADOR WEB
+  // =========================
+
+  webAdminButton: {
+    alignSelf: "center",
+    marginTop: 8,
+    padding: 6,
+  },
+
+  webAdminButtonPressed: {
+    opacity: 0.6,
+  },
+
+  webAdminText: {
+    fontSize: 11,
+    color: "#999999",
   },
 });

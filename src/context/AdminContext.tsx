@@ -1,8 +1,5 @@
 import { createContext, ReactNode, useContext, useState } from "react";
 
-// NOTA: esto es una autenticación simple de demostración para el proyecto
-// escolar (sin backend). La contraseña vive en el cliente, así que NO es
-// segura para un entorno de producción real.
 const ADMIN_PASSWORD = "admin";
 
 type AdminContextType = {

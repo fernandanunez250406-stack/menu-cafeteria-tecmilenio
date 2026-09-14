@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
-import { Alert } from "react-native"; // 👈 Importamos Alert
+import { Alert } from "react-native";
 import { MenuItem } from "../types/menu";
 
 export type SelectedCustomization = {
