@@ -1,16 +1,22 @@
 export const menuColors = {
-  background: '#FAF7F2', // crema cálido, no puro blanco
-  surface: '#FFFFFF',
-  textPrimary: '#2D2A26', // casi negro cálido
-  textSecondary: '#7A7168',
-  accent: '#2F6F5E', // verde pino - buckets activos, acciones principales
-  accentSoft: '#E4EEEB',
-  price: '#D98F4E', // mostaza cálido - sticker de precio
-  priceSoft: '#FBEADA',
-  danger: '#C0453A',
-  dangerSoft: '#F7E4E1',
-  border: '#EDE7DD',
-  overlay: 'rgba(30, 25, 20, 0.55)',
+  background: "#FFFFFF",
+  surface: "#FFFFFF",
+
+  textPrimary: "#222222",
+  textSecondary: "#666666",
+
+  accent: "#7A4B2A",
+  accentSoft: "#F7F0EA",
+
+  price: "#7A4B2A",
+  priceSoft: "#F7F0EA",
+
+  danger: "#C62828",
+  dangerSoft: "#FCECEC",
+
+  border: "#DDDDDD",
+
+  overlay: "rgba(0,0,0,0.45)",
 };
 
 export const menuSpacing = {
@@ -30,9 +36,29 @@ export const menuRadius = {
 };
 
 export const menuTypography = {
-  title: { fontSize: 22, fontWeight: '700' as const },
-  subtitle: { fontSize: 15, fontWeight: '500' as const },
-  body: { fontSize: 14, fontWeight: '400' as const },
-  price: { fontSize: 15, fontWeight: '700' as const },
-  label: { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.3 },
+  title: {
+    fontSize: 22,
+    fontWeight: "700" as const,
+  },
+
+  subtitle: {
+    fontSize: 15,
+    fontWeight: "500" as const,
+  },
+
+  body: {
+    fontSize: 14,
+    fontWeight: "400" as const,
+  },
+
+  price: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+  },
+
+  label: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    letterSpacing: 0.3,
+  },
 };

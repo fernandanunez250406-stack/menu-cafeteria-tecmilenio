@@ -1,17 +1,17 @@
 import {
-    FlatList,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    View,
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import {
-    menuColors,
-    menuRadius,
-    menuSpacing,
-    menuTypography,
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
 } from "../constants/menuTheme";
 
 import { useCart } from "../context/CartContext";
@@ -28,6 +28,7 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      {/* ENCABEZADO */}
       <View style={styles.header}>
         <Text style={styles.title}>Mi carrito</Text>
 
@@ -36,6 +37,7 @@ export default function CartScreen() {
         </Text>
       </View>
 
+      {/* CARRITO VACÍO */}
       {cartItems.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🛒</Text>
@@ -48,6 +50,7 @@ export default function CartScreen() {
         </View>
       ) : (
         <>
+          {/* PRODUCTOS */}
           <FlatList
             data={cartItems}
             keyExtractor={(item) => item.id}
@@ -55,9 +58,11 @@ export default function CartScreen() {
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
               <View style={styles.cartItem}>
-                {/* Información principal */}
+                {/* INFORMACIÓN PRINCIPAL */}
                 <View style={styles.productInfo}>
-                  <Text style={styles.emoji}>{item.product.emoji}</Text>
+                  <View style={styles.emojiContainer}>
+                    <Text style={styles.emoji}>{item.product.emoji}</Text>
+                  </View>
 
                   <View style={styles.productText}>
                     <Text style={styles.productName}>{item.product.name}</Text>
@@ -68,7 +73,7 @@ export default function CartScreen() {
                   </View>
                 </View>
 
-                {/* Personalizaciones */}
+                {/* PERSONALIZACIONES */}
                 {item.customizations.length > 0 && (
                   <View style={styles.customizationsContainer}>
                     {item.customizations.map((customization) => (
@@ -86,8 +91,7 @@ export default function CartScreen() {
 
                         {customization.price > 0 && (
                           <Text style={styles.customizationPrice}>
-                            +$
-                            {customization.price.toFixed(2)}
+                            +${customization.price.toFixed(2)}
                           </Text>
                         )}
                       </View>
@@ -95,39 +99,52 @@ export default function CartScreen() {
                   </View>
                 )}
 
-                {/* Cantidad */}
+                {/* CANTIDAD Y SUBTOTAL */}
                 <View style={styles.quantityRow}>
-                  <Pressable
-                    style={styles.quantityButton}
-                    onPress={() => decreaseQuantity(item.id)}
-                  >
-                    <Text style={styles.quantityButtonText}>-</Text>
-                  </Pressable>
+                  <View style={styles.quantityControls}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.quantityButton,
+                        pressed && styles.quantityButtonPressed,
+                      ]}
+                      onPress={() => decreaseQuantity(item.id)}
+                    >
+                      <Text style={styles.quantityButtonText}>−</Text>
+                    </Pressable>
 
-                  <Text style={styles.quantity}>{item.quantity}</Text>
+                    <Text style={styles.quantity}>{item.quantity}</Text>
 
-                  <Pressable
-                    style={styles.quantityButton}
-                    onPress={() => increaseQuantity(item.id)}
-                  >
-                    <Text style={styles.quantityButtonText}>+</Text>
-                  </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.quantityButton,
+                        pressed && styles.quantityButtonPressed,
+                      ]}
+                      onPress={() => increaseQuantity(item.id)}
+                    >
+                      <Text style={styles.quantityButtonText}>+</Text>
+                    </Pressable>
+                  </View>
 
-                  {/* Subtotal de esta línea */}
                   <Text style={styles.itemSubtotal}>
                     ${(item.unitPrice * item.quantity).toFixed(2)}
                   </Text>
                 </View>
 
-                {/* Eliminar */}
-                <Pressable onPress={() => removeFromCart(item.id)}>
+                {/* ELIMINAR */}
+                <Pressable
+                  onPress={() => removeFromCart(item.id)}
+                  style={({ pressed }) => [
+                    styles.removeButton,
+                    pressed && styles.removeButtonPressed,
+                  ]}
+                >
                   <Text style={styles.removeText}>Eliminar</Text>
                 </Pressable>
               </View>
             )}
           />
 
-          {/* Resumen */}
+          {/* RESUMEN */}
           <View style={styles.footer}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
@@ -135,7 +152,12 @@ export default function CartScreen() {
               <Text style={styles.totalPrice}>${totalPrice.toFixed(2)}</Text>
             </View>
 
-            <Pressable style={styles.orderButton}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.orderButton,
+                pressed && styles.orderButtonPressed,
+              ]}
+            >
               <Text style={styles.orderButtonText}>Realizar pedido</Text>
             </Pressable>
           </View>
@@ -146,10 +168,18 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
+  // =========================
+  // PANTALLA
+  // =========================
+
   screen: {
     flex: 1,
     backgroundColor: menuColors.background,
   },
+
+  // =========================
+  // ENCABEZADO
+  // =========================
 
   header: {
     paddingHorizontal: menuSpacing.lg,
@@ -167,6 +197,10 @@ const styles = StyleSheet.create({
     color: menuColors.textSecondary,
     marginTop: 4,
   },
+
+  // =========================
+  // CARRITO VACÍO
+  // =========================
 
   emptyState: {
     flex: 1,
@@ -193,14 +227,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  // =========================
+  // LISTA
+  // =========================
+
   list: {
-    padding: menuSpacing.md,
+    paddingHorizontal: menuSpacing.md,
+    paddingTop: menuSpacing.sm,
     paddingBottom: 180,
   },
+
+  // =========================
+  // PRODUCTO
+  // =========================
 
   cartItem: {
     backgroundColor: menuColors.surface,
     borderRadius: menuRadius.lg,
+    borderWidth: 1,
+    borderColor: menuColors.border,
     padding: menuSpacing.md,
     marginBottom: menuSpacing.sm,
   },
@@ -210,9 +255,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  emoji: {
-    fontSize: 42,
+  emojiContainer: {
+    width: 58,
+    height: 58,
+    borderRadius: menuRadius.md,
+    backgroundColor: menuColors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: menuSpacing.md,
+  },
+
+  emoji: {
+    fontSize: 34,
   },
 
   productText: {
@@ -222,6 +276,7 @@ const styles = StyleSheet.create({
   productName: {
     ...menuTypography.subtitle,
     color: menuColors.textPrimary,
+    fontWeight: "700",
   },
 
   productPrice: {
@@ -230,11 +285,15 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
+  // =========================
+  // PERSONALIZACIONES
+  // =========================
+
   customizationsContainer: {
     marginTop: menuSpacing.md,
     padding: menuSpacing.sm,
     borderRadius: menuRadius.md,
-    backgroundColor: menuColors.background,
+    backgroundColor: menuColors.accentSoft,
   },
 
   customizationRow: {
@@ -260,10 +319,14 @@ const styles = StyleSheet.create({
 
   customizationPrice: {
     fontSize: 12,
-    color: menuColors.price,
+    color: menuColors.accent,
     fontWeight: "600",
     marginLeft: 5,
   },
+
+  // =========================
+  // CANTIDAD
+  // =========================
 
   quantityRow: {
     flexDirection: "row",
@@ -271,40 +334,70 @@ const styles = StyleSheet.create({
     marginTop: menuSpacing.md,
   },
 
+  quantityControls: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
   quantityButton: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: menuColors.accent,
+    backgroundColor: menuColors.accentSoft,
+    borderWidth: 1,
+    borderColor: menuColors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
 
+  quantityButtonPressed: {
+    opacity: 0.7,
+  },
+
   quantityButtonText: {
-    color: "#FFFFFF",
+    color: menuColors.accent,
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "700",
+    lineHeight: 22,
   },
 
   quantity: {
     marginHorizontal: menuSpacing.md,
     fontSize: 17,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: menuColors.textPrimary,
   },
 
   itemSubtotal: {
     marginLeft: "auto",
     fontSize: 16,
-    fontWeight: "bold",
-    color: menuColors.price,
+    fontWeight: "700",
+    color: menuColors.accent,
+  },
+
+  // =========================
+  // ELIMINAR
+  // =========================
+
+  removeButton: {
+    alignSelf: "flex-start",
+    marginTop: menuSpacing.sm,
+    paddingVertical: 4,
+  },
+
+  removeButtonPressed: {
+    opacity: 0.6,
   },
 
   removeText: {
-    marginTop: menuSpacing.sm,
     color: menuColors.danger,
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 13,
   },
+
+  // =========================
+  // FOOTER
+  // =========================
 
   footer: {
     padding: menuSpacing.lg,
@@ -316,20 +409,25 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: menuSpacing.md,
   },
 
   totalLabel: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: menuColors.textPrimary,
   },
 
   totalPrice: {
     fontSize: 22,
-    fontWeight: "bold",
-    color: menuColors.price,
+    fontWeight: "700",
+    color: menuColors.accent,
   },
+
+  // =========================
+  // REALIZAR PEDIDO
+  // =========================
 
   orderButton: {
     backgroundColor: menuColors.accent,
@@ -338,9 +436,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  orderButtonPressed: {
+    opacity: 0.85,
+  },
+
   orderButtonText: {
     color: "#FFFFFF",
-    fontWeight: "bold",
+    fontWeight: "700",
     fontSize: 16,
   },
 });

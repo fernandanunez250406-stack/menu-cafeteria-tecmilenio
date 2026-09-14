@@ -1,19 +1,21 @@
 import { useState } from "react";
+
 import {
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 import {
-    menuColors,
-    menuRadius,
-    menuSpacing,
-    menuTypography,
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  menuTypography,
 } from "../../constants/menuTheme";
+
 import { useAdmin } from "../../context/AdminContext";
 
 type Props = {
@@ -28,6 +30,7 @@ export default function AdminLoginModal({
   onSuccess,
 }: Props) {
   const { login } = useAdmin();
+
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
 
@@ -43,6 +46,7 @@ export default function AdminLoginModal({
 
   const handleSubmit = () => {
     const success = login(password);
+
     if (success) {
       reset();
       onSuccess();
@@ -61,6 +65,7 @@ export default function AdminLoginModal({
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>Acceso de administrador</Text>
+
           <Text style={styles.subtitle}>
             Ingresa la contraseña del personal de cafetería para administrar el
             menú.
@@ -86,11 +91,23 @@ export default function AdminLoginModal({
             </Text>
           )}
 
-          <Pressable style={styles.submitButton} onPress={handleSubmit}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.submitButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={handleSubmit}
+          >
             <Text style={styles.submitButtonText}>Entrar</Text>
           </Pressable>
 
-          <Pressable style={styles.cancelButton} onPress={handleClose}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed && styles.cancelButtonPressed,
+            ]}
+            onPress={handleClose}
+          >
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </Pressable>
         </View>
@@ -107,14 +124,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: menuSpacing.xl,
   },
+
   card: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: menuColors.background,
+    backgroundColor: "#FFFFFF",
     borderRadius: menuRadius.lg,
     padding: menuSpacing.xl,
     gap: menuSpacing.sm,
   },
+
   title: {
     ...menuTypography.title,
     fontSize: 20,
@@ -122,12 +141,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: menuSpacing.xs,
   },
+
   subtitle: {
     ...menuTypography.body,
     color: menuColors.textSecondary,
     textAlign: "center",
     marginBottom: menuSpacing.md,
+    lineHeight: 20,
   },
+
   input: {
     backgroundColor: menuColors.surface,
     borderWidth: 1,
@@ -138,14 +160,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: menuColors.textPrimary,
   },
+
   inputError: {
     borderColor: menuColors.danger,
   },
+
   errorText: {
     ...menuTypography.body,
     fontSize: 13,
     color: menuColors.danger,
   },
+
   submitButton: {
     backgroundColor: menuColors.accent,
     borderRadius: menuRadius.md,
@@ -153,15 +178,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: menuSpacing.md,
   },
+
+  buttonPressed: {
+    opacity: 0.8,
+  },
+
   submitButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 15,
   },
+
   cancelButton: {
     alignItems: "center",
     paddingVertical: menuSpacing.sm,
   },
+
+  cancelButtonPressed: {
+    opacity: 0.6,
+  },
+
   cancelButtonText: {
     color: menuColors.textSecondary,
     fontWeight: "600",

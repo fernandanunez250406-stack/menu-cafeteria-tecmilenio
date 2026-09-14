@@ -11,12 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
-import {
-  menuColors,
-  menuRadius,
-  menuSpacing,
-  menuTypography,
-} from "@/constants/menuTheme";
+import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
 
 type Promo = {
   id: string;
@@ -48,15 +43,9 @@ const promos: Promo[] = [
 
 const { width: screenWidth } = Dimensions.get("window");
 
-// Ancho total disponible.
 const CONTAINER_WIDTH = screenWidth - menuSpacing.lg * 2;
-
-// La tarjeta será más delgada y centrada.
 const SLIDE_WIDTH = CONTAINER_WIDTH * 0.88;
-
-// Tarjeta vertical.
 const SLIDE_HEIGHT = SLIDE_WIDTH * 1.45;
-
 const SLIDE_INTERVAL_MS = 4000;
 
 function PromoCarousel() {
@@ -138,15 +127,19 @@ function PromoCarousel() {
 
 export default function HomeScreen() {
   const router = useRouter();
+
   const [adminModalVisible, setAdminModalVisible] = useState(false);
   const [lastPressTime, setLastPressTime] = useState(0);
 
-  // Detecta doble clic (web) o doble toque rápido (móvil) en el título
+  // Detecta doble clic en web o doble toque rápido en móvil
+  // para abrir el acceso oculto de administrador.
   const handleAdminSecretTrigger = () => {
     const now = Date.now();
+
     if (now - lastPressTime < 400) {
       setAdminModalVisible(true);
     }
+
     setLastPressTime(now);
   };
 
@@ -167,7 +160,10 @@ export default function HomeScreen() {
 
       {/* BOTÓN */}
       <Pressable
-        style={styles.menuButton}
+        style={({ pressed }) => [
+          styles.menuButton,
+          pressed && styles.menuButtonPressed,
+        ]}
         onPress={() => {
           router.push("/menu");
         }}
@@ -190,7 +186,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: menuColors.background,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.xl,
     paddingBottom: menuSpacing.xl,
@@ -208,7 +204,7 @@ const styles = StyleSheet.create({
 
   welcomeLabel: {
     ...menuTypography.label,
-    color: menuColors.textSecondary,
+    color: "#666666",
     letterSpacing: 2,
     fontSize: 15,
     fontWeight: "700",
@@ -218,7 +214,7 @@ const styles = StyleSheet.create({
     ...menuTypography.title,
     fontSize: 31,
     fontWeight: "800",
-    color: menuColors.textPrimary,
+    color: "#222222",
     textAlign: "center",
   },
 
@@ -238,12 +234,14 @@ const styles = StyleSheet.create({
   },
 
   // =========================
-  // TARJETA
+  // TARJETA DE PROMOCIÓN
   // =========================
 
   promoCard: {
-    backgroundColor: menuColors.accentSoft,
+    backgroundColor: "#F7F3EE",
     borderRadius: menuRadius.lg,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
     paddingHorizontal: menuSpacing.lg,
     paddingVertical: 30,
     alignItems: "center",
@@ -261,15 +259,20 @@ const styles = StyleSheet.create({
   promoTitle: {
     ...menuTypography.title,
     fontSize: 18,
-    color: menuColors.accent,
+    fontWeight: "700",
+    color: "#7A4B2A",
     textAlign: "center",
   },
 
   promoSubtitle: {
     ...menuTypography.body,
-    color: menuColors.textSecondary,
+    color: "#666666",
     textAlign: "center",
   },
+
+  // =========================
+  // INDICADORES
+  // =========================
 
   dots: {
     flexDirection: "row",
@@ -283,24 +286,32 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: menuColors.border,
+    backgroundColor: "#DDDDDD",
   },
 
   dotActive: {
-    backgroundColor: menuColors.accent,
+    backgroundColor: "#7A4B2A",
     width: 18,
   },
 
+  // =========================
+  // BOTÓN MENÚ
+  // =========================
+
   menuButton: {
-    backgroundColor: menuColors.accent,
+    backgroundColor: "#7A4B2A",
     paddingVertical: menuSpacing.md + 4,
     borderRadius: menuRadius.md,
     alignItems: "center",
     marginTop: "auto",
   },
 
+  menuButtonPressed: {
+    opacity: 0.85,
+  },
+
   menuButtonText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
   },

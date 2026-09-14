@@ -23,11 +23,10 @@ export type MenuItem = {
   name: string;
   price: number;
   emoji: string;
-  photoUri?: string | null; // foto subida por el personal desde su dispositivo (HU1)
+  photoUri?: string | null;
   description: string;
   specs: MenuSpec[];
   available: boolean;
 };
 
-// Datos que llena el formulario de alta/edición (sin id, se genera aparte)
 export type MenuItemDraft = Omit<MenuItem, "id">;

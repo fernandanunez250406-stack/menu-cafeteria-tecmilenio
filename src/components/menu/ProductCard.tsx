@@ -1,13 +1,13 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+
 import {
-  menuColors,
   menuRadius,
   menuSpacing,
   menuTypography,
 } from "../../constants/menuTheme";
+
 import { MenuItem } from "../../types/menu";
 
-// Props = información y funciones que recibe este componente.
 type Props = {
   item: MenuItem;
   isAdmin: boolean;
@@ -25,53 +25,39 @@ export default function ProductCard({
 }: Props) {
   return (
     <View style={styles.card}>
-      {/* 
-        Esta parte de la tarjeta se puede presionar.
-        Al hacerlo, ejecuta onPress().
-      */}
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [
           styles.productContent,
-
-          // Cuando el usuario mantiene presionada la tarjeta,
-          // se hace un pequeño efecto de escala.
           pressed && { transform: [{ scale: 0.98 }] },
         ]}
       >
+        {/* Imagen o emoji */}
         <View style={styles.imageWrap}>
-          {/* 
-            Si el producto tiene una imagen, mostramos la imagen.
-            Si no tiene, mostramos el emoji.
-          */}
           {item.photoUri ? (
             <Image source={{ uri: item.photoUri }} style={styles.photo} />
           ) : (
             <Text style={styles.emoji}>{item.emoji}</Text>
           )}
 
-          {/* Precio del producto */}
+          {/* Precio */}
           <View style={styles.priceSticker}>
             <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* Nombre del producto */}
+        {/* Nombre */}
         <Text style={styles.name} numberOfLines={1}>
           {item.name}
         </Text>
 
-        {/* Descripción del producto */}
+        {/* Descripción */}
         <Text style={styles.description} numberOfLines={2}>
           {item.description}
         </Text>
       </Pressable>
 
-      {/*
-        Personal de cafetería (admin): controla la disponibilidad.
-        Cliente: agrega el producto al carrito.
-        Solo se muestra UNO de los dos botones según el rol.
-      */}
+      {/* Acciones */}
       {isAdmin ? (
         <Pressable
           style={[
@@ -103,118 +89,132 @@ export default function ProductCard({
 }
 
 const styles = StyleSheet.create({
-  // Contenedor principal de cada tarjeta.
+  // Tarjeta del producto
   card: {
     flex: 1,
-    backgroundColor: menuColors.surface,
+    backgroundColor: "#FFFFFF",
     borderRadius: menuRadius.lg,
     padding: menuSpacing.sm,
     margin: menuSpacing.sm,
+
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     elevation: 2,
   },
 
-  // Parte principal del contenido del producto.
+  // Contenido principal
   productContent: {
     flex: 1,
   },
 
-  // Contenedor de la imagen o emoji.
+  // Imagen / emoji
   imageWrap: {
     position: "relative",
     borderRadius: menuRadius.md,
     overflow: "hidden",
     aspectRatio: 1,
     marginBottom: menuSpacing.sm,
-    backgroundColor: menuColors.accentSoft,
+
+    backgroundColor: "#F7F3EE",
+
     alignItems: "center",
     justifyContent: "center",
   },
 
-  // Tamaño del emoji cuando no hay imagen.
+  // Emoji
   emoji: {
     fontSize: 56,
   },
 
-  // Imagen del producto.
+  // Imagen
   photo: {
     width: "100%",
     height: "100%",
   },
 
-  // Etiqueta que muestra el precio.
+  // Precio
   priceSticker: {
     position: "absolute",
     bottom: menuSpacing.sm,
     right: menuSpacing.sm,
-    backgroundColor: menuColors.price,
+
+    backgroundColor: "#7A4B2A",
+
     borderRadius: menuRadius.pill,
     paddingHorizontal: menuSpacing.sm,
     paddingVertical: 4,
   },
 
-  // Texto del precio.
+  // Texto del precio
   priceText: {
     ...menuTypography.price,
-    color: "#fff",
+    color: "#FFFFFF",
   },
 
-  // Nombre del producto.
+  // Nombre
   name: {
     ...menuTypography.subtitle,
-    color: menuColors.textPrimary,
+    color: "#222222",
     marginBottom: 2,
   },
 
-  // Descripción del producto.
+  // Descripción
   description: {
     ...menuTypography.body,
     fontSize: 12,
-    color: menuColors.textSecondary,
+    color: "#666666",
   },
 
-  // Botón para agregar al carrito.
+  // Botón añadir
   cartButton: {
     marginTop: menuSpacing.sm,
     paddingVertical: 10,
+
     borderRadius: menuRadius.md,
+
     alignItems: "center",
-    backgroundColor: menuColors.accent,
+
+    backgroundColor: "#7A4B2A",
   },
 
-  // Estilo cuando el producto no está disponible.
+  // Producto no disponible
   cartButtonDisabled: {
-    backgroundColor: "#9E9E9E",
+    backgroundColor: "#F1F1F1",
   },
 
-  // Texto del botón del carrito.
+  // Texto botón añadir
   cartButtonText: {
     color: "#FFFFFF",
-    fontWeight: "bold",
+    fontWeight: "700",
     fontSize: 12,
   },
 
-  // Botón para cambiar disponibilidad.
+  // Botón de disponibilidad para admin
   availabilityButton: {
     marginTop: menuSpacing.sm,
     paddingVertical: 8,
+
     borderRadius: menuRadius.md,
+
     alignItems: "center",
-    backgroundColor: "#4CAF50",
+
+    backgroundColor: "#7A4B2A",
   },
 
-  // Color cuando el producto no está disponible.
+  // No disponible para admin
   unavailableButton: {
-    backgroundColor: "#E53935",
+    backgroundColor: "#FCECEC",
   },
 
-  // Texto del botón de disponibilidad.
+  // Texto disponibilidad
   availabilityText: {
     color: "#FFFFFF",
-    fontWeight: "bold",
+    fontWeight: "700",
     fontSize: 12,
   },
 });

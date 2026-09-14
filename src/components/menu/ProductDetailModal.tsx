@@ -35,11 +35,6 @@ export default function ProductDetailModal({
     Record<string, string>
   >({});
 
-  /**
-   * Siempre trabajamos con un arreglo seguro.
-   * Esto evita errores si Firebase todavía tiene
-   * productos antiguos sin specs o con specs inválidas.
-   */
   const specs = useMemo(() => {
     if (!item || !Array.isArray(item.specs)) {
       return [];
@@ -56,12 +51,6 @@ export default function ProductDetailModal({
     );
   }, [item]);
 
-  /**
-   * Cuando cambia el producto, seleccionamos automáticamente
-   * la opción marcada como default.
-   *
-   * Si ninguna está marcada como default, usamos la primera.
-   */
   useEffect(() => {
     if (!item) {
       setSelectedOptions({});
@@ -82,9 +71,6 @@ export default function ProductDetailModal({
     setSelectedOptions(defaultSelections);
   }, [item, specs]);
 
-  /**
-   * Selecciona una opción de una especificación.
-   */
   const handleSelectOption = (specId: string, optionId: string) => {
     setSelectedOptions((current) => ({
       ...current,
@@ -92,9 +78,6 @@ export default function ProductDetailModal({
     }));
   };
 
-  /**
-   * Calcula el costo adicional de las personalizaciones.
-   */
   const customizationPrice = useMemo(() => {
     return specs.reduce((total, spec) => {
       const selectedOptionId = selectedOptions[spec.id];

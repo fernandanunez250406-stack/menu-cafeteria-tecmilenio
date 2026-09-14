@@ -1,5 +1,7 @@
 import { useRouter } from "expo-router";
+
 import { useEffect, useRef, useState } from "react";
+
 import {
   Animated,
   FlatList,
@@ -10,19 +12,24 @@ import {
   TextInput,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import ProductCard from "../components/menu/ProductCard";
 import ProductDetailModal from "../components/menu/ProductDetailModal";
 import ProductFormModal from "../components/menu/ProductFormModal";
+
 import {
-  menuColors,
   menuRadius,
   menuSpacing,
-  menuTypography,
+  menuTypography
 } from "../constants/menuTheme";
+
 import { useAdmin } from "../context/AdminContext";
 import { useCart } from "../context/CartContext";
-import { mockCategories } from "../data/mockMenu"; // Mantenemos las categorías mock o tu fuente de categorías
+
+import { mockCategories } from "../data/mockMenu";
+
 import {
   createMenuItem,
   deleteMenuItem,
@@ -30,18 +37,18 @@ import {
   toggleItemAvailability,
   updateMenuItem,
 } from "../services/api";
+
 import { MenuItem, MenuItemDraft } from "../types/menu";
 import { confirmAction } from "../utils/crossPlatformConfirm";
 
 export default function MenuScreen() {
   const router = useRouter();
+
   const { isAdmin, logout } = useAdmin();
   const { addToCart, totalItems } = useCart();
 
-  // Cambiamos el estado inicial de mockMenuItems a un array vacío para llenarlo desde la API/Base de datos
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
 
@@ -49,8 +56,10 @@ export default function MenuScreen() {
     const matchesSearch = item.name
       .toLowerCase()
       .includes(searchText.toLowerCase());
+
     const matchesCategory =
       selectedCategory === "Todos" || item.categoryId === selectedCategory;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -60,11 +69,16 @@ export default function MenuScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  // Función para cargar los productos desde la API / Base de datos
+  // =========================================================
+  // CARGAR MENÚ
+  // =========================================================
+
   const loadMenuItems = async () => {
     try {
       setLoading(true);
+
       const data = await getMenu();
+
       setItems(data);
     } catch (error) {
       console.error("Error al cargar el menú:", error);
@@ -77,9 +91,15 @@ export default function MenuScreen() {
     loadMenuItems();
   }, []);
 
+  // =========================================================
+  // ANIMACIÓN DEL CARRITO
+  // =========================================================
+
   const cartScale = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (totalItems === 0) return;
+
     Animated.sequence([
       Animated.spring(cartScale, {
         toValue: 1.25,
@@ -94,8 +114,13 @@ export default function MenuScreen() {
     ]).start();
   }, [totalItems]);
 
+  // =========================================================
+  // ADMIN
+  // =========================================================
+
   const openCreateForm = () => {
     if (!isAdmin) return;
+
     setEditingItem(null);
     setFormVisible(true);
   };
@@ -107,17 +132,21 @@ export default function MenuScreen() {
 
   const toggleAvailability = async (item: MenuItem) => {
     if (!isAdmin) return;
+
     try {
       const updated = await toggleItemAvailability(item.id, !item.available);
+
       setItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
     } catch (error) {
       console.error("Error al cambiar disponibilidad:", error);
-      loadMenuItems(); // Revertir en caso de error recargando
+
+      loadMenuItems();
     }
   };
 
   const openEditForm = (item: MenuItem) => {
     if (!isAdmin) return;
+
     setDetailVisible(false);
     setEditingItem(item);
     setFormVisible(true);
@@ -125,14 +154,18 @@ export default function MenuScreen() {
 
   const handleSave = async (draft: MenuItemDraft, id?: string) => {
     if (!isAdmin) return;
+
     try {
       if (id) {
         const updated = await updateMenuItem(id, draft);
+
         setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
       } else {
         const newItem = await createMenuItem(draft);
+
         setItems((prev) => [newItem, ...prev]);
       }
+
       setFormVisible(false);
     } catch (error) {
       console.error("Error al guardar el producto:", error);
@@ -141,13 +174,16 @@ export default function MenuScreen() {
 
   const handleDelete = (item: MenuItem) => {
     if (!isAdmin) return;
+
     confirmAction(
       "Eliminar producto",
       `¿Quitar "${item.name}" del menú?`,
       async () => {
         try {
           await deleteMenuItem(item.id);
+
           setItems((prev) => prev.filter((it) => it.id !== item.id));
+
           setDetailVisible(false);
         } catch (error) {
           console.error("Error al eliminar el producto:", error);
@@ -157,11 +193,17 @@ export default function MenuScreen() {
     );
   };
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
+      {/* HEADER */}
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.headerTitle}>Menú</Text>
+
           <Text style={styles.headerSubtitle}>{items.length} productos</Text>
         </View>
 
@@ -170,12 +212,17 @@ export default function MenuScreen() {
             <Text style={styles.addButtonText}>+ Agregar</Text>
           </Pressable>
         ) : (
-          <Animated.View style={{ transform: [{ scale: cartScale }] }}>
+          <Animated.View
+            style={{
+              transform: [{ scale: cartScale }],
+            }}
+          >
             <Pressable
               style={styles.cartHeaderButton}
               onPress={() => router.push("/cart")}
             >
               <Text style={styles.cartHeaderButtonText}>🛒</Text>
+
               {totalItems > 0 && (
                 <View style={styles.cartBadge}>
                   <Text style={styles.cartBadgeText}>{totalItems}</Text>
@@ -186,6 +233,7 @@ export default function MenuScreen() {
         )}
       </View>
 
+      {/* SALIR DEL MODO ADMIN */}
       {isAdmin && (
         <Pressable
           style={styles.logoutRow}
@@ -198,19 +246,23 @@ export default function MenuScreen() {
         </Pressable>
       )}
 
+      {/* BUSCADOR */}
       <TextInput
         style={styles.searchInput}
-        placeholder="Buscar productos.."
+        placeholder="Buscar productos..."
+        placeholderTextColor="#777777"
         value={searchText}
         onChangeText={setSearchText}
       />
 
+      {/* CATEGORÍAS */}
       <View style={styles.categoriesWrapper}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesContent}
         >
+          {/* TODOS */}
           <Pressable
             style={[
               styles.categoryButton,
@@ -228,8 +280,10 @@ export default function MenuScreen() {
             </Text>
           </Pressable>
 
+          {/* CATEGORÍAS */}
           {mockCategories.map((category) => {
             const isSelected = selectedCategory === category.id;
+
             return (
               <Pressable
                 key={category.id}
@@ -253,6 +307,7 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
+      {/* PRODUCTOS */}
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => item.id}
@@ -278,6 +333,7 @@ export default function MenuScreen() {
         }
       />
 
+      {/* DETALLE DEL PRODUCTO */}
       <ProductDetailModal
         item={detailItem}
         visible={detailVisible}
@@ -291,6 +347,7 @@ export default function MenuScreen() {
         }}
       />
 
+      {/* FORMULARIO ADMIN */}
       {isAdmin && (
         <ProductFormModal
           visible={formVisible}
@@ -305,129 +362,216 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
+  // =========================================================
+  // PANTALLA
+  // =========================================================
+
   screen: {
     flex: 1,
-    backgroundColor: menuColors.background,
+    backgroundColor: "#FFFFFF",
   },
+
+  // =========================================================
+  // HEADER
+  // =========================================================
+
   headerRow: {
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
+
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+
   headerTitle: {
     ...menuTypography.title,
     fontSize: 26,
-    color: menuColors.textPrimary,
+    color: "#222222",
   },
+
   headerSubtitle: {
     ...menuTypography.body,
-    color: menuColors.textSecondary,
+    color: "#666666",
     marginTop: 2,
   },
+
+  // =========================================================
+  // GRID
+  // =========================================================
+
   grid: {
     paddingHorizontal: menuSpacing.sm,
     paddingBottom: 100,
   },
+
+  // =========================================================
+  // ESTADO VACÍO
+  // =========================================================
+
   emptyState: {
     padding: menuSpacing.xl,
     alignItems: "center",
   },
+
   emptyTitle: {
     ...menuTypography.subtitle,
-    color: menuColors.textPrimary,
+    color: "#222222",
     marginBottom: menuSpacing.xs,
   },
+
+  // =========================================================
+  // BUSCADOR
+  // =========================================================
+
   searchInput: {
     marginHorizontal: menuSpacing.lg,
     marginTop: menuSpacing.md,
     marginBottom: menuSpacing.sm,
+
     paddingHorizontal: menuSpacing.md,
     paddingVertical: menuSpacing.sm,
+
     borderWidth: 1,
-    borderColor: menuColors.textSecondary,
+    borderColor: "#DDDDDD",
     borderRadius: menuRadius.md,
-    backgroundColor: menuColors.background,
-    color: menuColors.textPrimary,
+
+    backgroundColor: "#FFFFFF",
+
+    color: "#222222",
+
+    fontSize: 14,
   },
+
+  // =========================================================
+  // CATEGORÍAS
+  // =========================================================
+
   categoriesWrapper: {
     height: 50,
     marginBottom: menuSpacing.md,
   },
+
   categoriesContent: {
     paddingHorizontal: menuSpacing.lg,
     alignItems: "center",
   },
+
   categoryButton: {
     paddingHorizontal: menuSpacing.md,
     height: 38,
+
     justifyContent: "center",
-    borderRadius: menuRadius.md,
-    backgroundColor: "#E5E5E5",
+
+    borderRadius: menuRadius.pill,
+
+    backgroundColor: "#F8F8F8",
+
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+
     marginRight: 10,
   },
+
   categoryButtonActive: {
-    backgroundColor: menuColors.accent,
+    backgroundColor: "#F7F0EA",
+    borderColor: "#7A4B2A",
   },
+
   categoryText: {
     ...menuTypography.body,
-    color: menuColors.textPrimary,
+    color: "#333333",
     fontSize: 13,
   },
+
   categoryTextActive: {
-    color: "#fff",
-    fontWeight: "bold",
+    color: "#7A4B2A",
+    fontWeight: "700",
   },
+
+  // =========================================================
+  // BOTÓN ADMIN AGREGAR
+  // =========================================================
+
   addButton: {
-    backgroundColor: menuColors.textPrimary,
+    backgroundColor: "#7A4B2A",
+
     paddingHorizontal: menuSpacing.md,
     height: 42,
+
     borderRadius: menuRadius.md,
+
     justifyContent: "center",
     alignItems: "center",
   },
+
   addButtonText: {
     ...menuTypography.body,
-    color: menuColors.background,
-    fontWeight: "bold",
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
+
+  // =========================================================
+  // CARRITO
+  // =========================================================
+
   cartHeaderButton: {
     width: 42,
     height: 42,
+
     borderRadius: menuRadius.md,
-    backgroundColor: "#C8E6C9",
+
+    backgroundColor: "#F7F0EA",
+
+    borderWidth: 1,
+    borderColor: "#7A4B2A",
+
     alignItems: "center",
     justifyContent: "center",
   },
+
   cartHeaderButtonText: {
     fontSize: 18,
   },
+
   cartBadge: {
     position: "absolute",
+
     top: -6,
     right: -6,
+
     minWidth: 20,
     height: 20,
+
     borderRadius: 10,
-    backgroundColor: menuColors.danger,
+
+    backgroundColor: "#7A4B2A",
+
     alignItems: "center",
     justifyContent: "center",
+
     paddingHorizontal: 4,
   },
+
   cartBadgeText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
+
+  // =========================================================
+  // LOGOUT ADMIN
+  // =========================================================
+
   logoutRow: {
     paddingHorizontal: menuSpacing.lg,
     marginBottom: menuSpacing.sm,
   },
+
   logoutText: {
     ...menuTypography.body,
     fontSize: 13,
-    color: menuColors.danger,
+    color: "#C62828",
     fontWeight: "600",
   },
 });
