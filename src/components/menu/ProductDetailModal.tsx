@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -7,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { MenuItem } from "../../types/menu";
 
 type ProductDetailModalProps = {
@@ -94,9 +97,6 @@ export default function ProductDetailModal({
     }, 0);
   }, [specs, selectedOptions]);
 
-  /**
-   * Precio final del producto.
-   */
   const finalPrice = useMemo(() => {
     if (!item) {
       return 0;
@@ -129,16 +129,26 @@ export default function ProductDetailModal({
               </Pressable>
             </View>
 
-            {/* Emoji / imagen */}
+            {/* Imagen del producto */}
             <View style={styles.imageContainer}>
-              <Text style={styles.emoji}>{item.emoji}</Text>
+              {item.photoUri ? (
+                <Image
+                  source={{ uri: item.photoUri }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.emoji}>{item.emoji}</Text>
+              )}
             </View>
 
             {/* Información del producto */}
             <View style={styles.infoContainer}>
               <Text style={styles.productName}>{item.name}</Text>
 
-              <Text style={styles.description}>{item.description}</Text>
+              {!!item.description && (
+                <Text style={styles.description}>{item.description}</Text>
+              )}
 
               <Text style={styles.basePrice}>${item.price.toFixed(2)}</Text>
             </View>
@@ -151,10 +161,6 @@ export default function ProductDetailModal({
                 </Text>
 
                 {specs.map((spec, specIndex) => {
-                  /**
-                   * Protección adicional por si llega información
-                   * incorrecta desde Firebase.
-                   */
                   if (
                     !spec ||
                     !Array.isArray(spec.options) ||
@@ -336,12 +342,18 @@ const styles = StyleSheet.create({
 
   imageContainer: {
     width: "100%",
-    height: 180,
+    height: 220,
     borderRadius: 20,
     backgroundColor: "#f7f3ee",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
+    overflow: "hidden",
+  },
+
+  productImage: {
+    width: "100%",
+    height: "100%",
   },
 
   emoji: {

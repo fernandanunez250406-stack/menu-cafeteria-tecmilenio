@@ -1,5 +1,4 @@
 import * as ImagePicker from "expo-image-picker";
-
 import React, { useEffect, useState } from "react";
 
 import {
@@ -31,12 +30,14 @@ import {
   MenuSpecOption,
 } from "../../types/menu";
 
+import { uploadImage } from "../../services/api";
+
 type Props = {
   visible: boolean;
   categories: MenuCategory[];
   initialItem: MenuItem | null;
   onClose: () => void;
-  onSave: (draft: MenuItemDraft, id?: string) => void;
+  onSave: (draft: MenuItemDraft, id?: string) => void | Promise<void>;
 };
 
 const emptyDraft = (categoryId: string): MenuItemDraft => ({
@@ -75,13 +76,21 @@ export default function ProductFormModal({
     initialItem ? String(initialItem.price) : "",
   );
 
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     if (visible) {
       setDraft(initialItem ?? emptyDraft(categories[0]?.id ?? ""));
 
       setPriceText(initialItem ? String(initialItem.price) : "");
+
+      setIsSaving(false);
     }
   }, [visible, initialItem, categories]);
+
+  // =========================================================
+  // IMAGEN
+  // =========================================================
 
   const pickImage = async () => {
     if (Platform.OS !== "web") {
@@ -93,23 +102,28 @@ export default function ProductFormModal({
           "Permiso necesario",
           "Activa el acceso a tus fotos para poder subir una imagen del producto.",
         );
-
         return;
       }
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setDraft((d) => ({
-        ...d,
-        photoUri: result.assets[0].uri,
-      }));
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setDraft((d) => ({
+          ...d,
+          photoUri: result.assets[0].uri,
+        }));
+      }
+    } catch (error) {
+      console.error("Error al seleccionar imagen:", error);
+
+      Alert.alert("Error", "No se pudo seleccionar la imagen.");
     }
   };
 
@@ -164,6 +178,7 @@ export default function ProductFormModal({
   const addOption = (specIndex: number) => {
     setDraft((d) => {
       const updatedSpecs = [...d.specs];
+
       const spec = updatedSpecs[specIndex];
 
       const newOption: MenuSpecOption = {
@@ -247,7 +262,8 @@ export default function ProductFormModal({
 
       const currentOptions = updatedSpecs[specIndex].options;
 
-      // Siempre debe quedar al menos una opción.
+      // Siempre debe quedar al menos
+      // una opción.
       if (currentOptions.length === 1) {
         return d;
       }
@@ -258,8 +274,9 @@ export default function ProductFormModal({
         (_, index) => index !== optionIndex,
       );
 
-      // Si eliminamos la opción predeterminada,
-      // la primera opción restante pasa a ser predeterminada.
+      // Si eliminamos la opción
+      // predeterminada, la primera
+      // restante será la predeterminada.
       if (removedOption.isDefault) {
         updatedOptions = updatedOptions.map((option, index) => ({
           ...option,
@@ -283,10 +300,13 @@ export default function ProductFormModal({
   // GUARDAR PRODUCTO
   // =========================================================
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+
     if (!draft.name.trim()) {
       Alert.alert("Falta información", "Escribe el nombre del producto.");
-
       return;
     }
 
@@ -294,7 +314,11 @@ export default function ProductFormModal({
 
     if (parsedPrice < 0) {
       Alert.alert("Precio inválido", "El precio no puede ser negativo.");
+      return;
+    }
 
+    if (!draft.categoryId) {
+      Alert.alert("Falta información", "Selecciona una categoría.");
       return;
     }
 
@@ -333,16 +357,74 @@ export default function ProductFormModal({
       })
       .filter((spec): spec is MenuSpec => spec !== null);
 
-    onSave(
-      {
+    try {
+      setIsSaving(true);
+
+      let finalPhotoUri = draft.photoUri;
+
+      // =====================================================
+      // SUBIR IMAGEN A CLOUDINARY
+      // =====================================================
+
+      /*
+       * Si photoUri NO empieza con http://
+       * o https://, significa que es una
+       * imagen local recién seleccionada.
+       *
+       * En ese caso la subimos a Cloudinary.
+       *
+       * Si ya es una URL, significa que la
+       * imagen ya está almacenada en Cloudinary
+       * y no necesitamos volver a subirla.
+       */
+      if (
+        finalPhotoUri &&
+        !finalPhotoUri.startsWith("http://") &&
+        !finalPhotoUri.startsWith("https://")
+      ) {
+        const uploadResult = await uploadImage(finalPhotoUri);
+
+        if (!uploadResult?.url) {
+          throw new Error("Cloudinary no devolvió una URL de imagen.");
+        }
+
+        finalPhotoUri = uploadResult.url;
+      }
+
+      // =====================================================
+      // PREPARAR PRODUCTO
+      // =====================================================
+
+      const finalDraft: MenuItemDraft = {
         ...draft,
         name: draft.name.trim(),
         price: parsedPrice,
+        photoUri: finalPhotoUri,
         specs: cleanSpecs,
-      },
-      initialItem?.id,
-    );
+      };
+
+      // =====================================================
+      // GUARDAR EN FIREBASE
+      // =====================================================
+
+      await onSave(finalDraft, initialItem?.id);
+
+      setIsSaving(false);
+    } catch (error) {
+      console.error("Error al guardar producto:", error);
+
+      setIsSaving(false);
+
+      Alert.alert(
+        "Error",
+        "No se pudo guardar el producto. Verifica tu conexión e inténtalo nuevamente.",
+      );
+    }
   };
+
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
     <Modal
@@ -357,12 +439,13 @@ export default function ProductFormModal({
       >
         <View style={styles.sheet}>
           {/* HEADER */}
+
           <View style={styles.header}>
             <Text style={styles.title}>
               {initialItem ? "Editar producto" : "Nuevo producto"}
             </Text>
 
-            <Pressable onPress={onClose}>
+            <Pressable onPress={onClose} disabled={isSaving}>
               <Text style={styles.closeText}>Cancelar</Text>
             </Pressable>
           </View>
@@ -372,9 +455,19 @@ export default function ProductFormModal({
             keyboardShouldPersistTaps="handled"
           >
             {/* IMAGEN */}
-            <Pressable onPress={pickImage} style={styles.imagePicker}>
+
+            <Pressable
+              onPress={pickImage}
+              disabled={isSaving}
+              style={styles.imagePicker}
+            >
               {draft.photoUri ? (
-                <Image source={{ uri: draft.photoUri }} style={styles.image} />
+                <Image
+                  source={{
+                    uri: draft.photoUri,
+                  }}
+                  style={styles.image}
+                />
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Text style={styles.imagePlaceholderEmoji}>
@@ -393,7 +486,11 @@ export default function ProductFormModal({
             </Pressable>
 
             {draft.photoUri && (
-              <Pressable onPress={removeImage} style={styles.removeImageButton}>
+              <Pressable
+                onPress={removeImage}
+                disabled={isSaving}
+                style={styles.removeImageButton}
+              >
                 <Text style={styles.removeImageText}>
                   Quitar foto y usar emoji
                 </Text>
@@ -401,6 +498,7 @@ export default function ProductFormModal({
             )}
 
             {/* NOMBRE */}
+
             <Field label="Nombre del producto">
               <TextInput
                 style={styles.input}
@@ -413,10 +511,12 @@ export default function ProductFormModal({
                 }
                 placeholder="Ej. Latte Vainilla"
                 placeholderTextColor={menuColors.textSecondary}
+                editable={!isSaving}
               />
             </Field>
 
             {/* PRECIO */}
+
             <Field label="Precio (MXN)">
               <TextInput
                 style={styles.input}
@@ -425,10 +525,12 @@ export default function ProductFormModal({
                 placeholder="Ej. 45"
                 placeholderTextColor={menuColors.textSecondary}
                 keyboardType="decimal-pad"
+                editable={!isSaving}
               />
             </Field>
 
             {/* CATEGORÍA */}
+
             <Field label="Categoría (bucket)">
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {categories.map((cat) => {
@@ -443,6 +545,7 @@ export default function ProductFormModal({
                           categoryId: cat.id,
                         }))
                       }
+                      disabled={isSaving}
                       style={[
                         styles.categoryOption,
                         active && styles.categoryOptionActive,
@@ -463,6 +566,7 @@ export default function ProductFormModal({
             </Field>
 
             {/* DESCRIPCIÓN */}
+
             <Field label="Descripción">
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -477,15 +581,18 @@ export default function ProductFormModal({
                 placeholderTextColor={menuColors.textSecondary}
                 multiline
                 numberOfLines={3}
+                editable={!isSaving}
               />
             </Field>
 
             {/* ESPECIFICACIONES */}
+
             <Field label="Especificaciones">
               <View style={styles.specsContainer}>
                 {draft.specs.map((spec, specIndex) => (
                   <View key={spec.id} style={styles.specCard}>
                     {/* NOMBRE DE LA ESPECIFICACIÓN */}
+
                     <View style={styles.specHeader}>
                       <TextInput
                         style={[styles.input, styles.specLabelInput]}
@@ -495,10 +602,12 @@ export default function ProductFormModal({
                         }
                         placeholder="Ej. Tipo de leche"
                         placeholderTextColor={menuColors.textSecondary}
+                        editable={!isSaving}
                       />
 
                       <Pressable
                         onPress={() => removeSpec(specIndex)}
+                        disabled={isSaving}
                         style={styles.removeSpecButton}
                       >
                         <Text style={styles.removeSpecText}>🗑️</Text>
@@ -508,6 +617,7 @@ export default function ProductFormModal({
                     <Text style={styles.optionsTitle}>Opciones</Text>
 
                     {/* OPCIONES */}
+
                     <View style={styles.optionsContainer}>
                       {spec.options.map((option, optionIndex) => (
                         <View key={option.id} style={styles.optionRow}>
@@ -524,6 +634,7 @@ export default function ProductFormModal({
                             }
                             placeholder="Ej. Leche entera"
                             placeholderTextColor={menuColors.textSecondary}
+                            editable={!isSaving}
                           />
 
                           <TextInput
@@ -540,13 +651,16 @@ export default function ProductFormModal({
                             placeholder="$0"
                             placeholderTextColor={menuColors.textSecondary}
                             keyboardType="decimal-pad"
+                            editable={!isSaving}
                           />
 
                           {/* DEFAULT */}
+
                           <Pressable
                             onPress={() =>
                               setDefaultOption(specIndex, optionIndex)
                             }
+                            disabled={isSaving}
                             style={[
                               styles.defaultButton,
                               option.isDefault && styles.defaultButtonActive,
@@ -564,9 +678,10 @@ export default function ProductFormModal({
                           </Pressable>
 
                           {/* ELIMINAR OPCIÓN */}
+
                           <Pressable
                             onPress={() => removeOption(specIndex, optionIndex)}
-                            disabled={spec.options.length === 1}
+                            disabled={isSaving || spec.options.length === 1}
                             style={[
                               styles.removeOptionButton,
                               spec.options.length === 1 &&
@@ -586,6 +701,7 @@ export default function ProductFormModal({
                     <Pressable
                       style={styles.addOptionButton}
                       onPress={() => addOption(specIndex)}
+                      disabled={isSaving}
                     >
                       <Text style={styles.addOptionText}>+ Agregar opción</Text>
                     </Pressable>
@@ -593,7 +709,12 @@ export default function ProductFormModal({
                 ))}
 
                 {/* AGREGAR ESPECIFICACIÓN */}
-                <Pressable style={styles.addSpecButton} onPress={addSpec}>
+
+                <Pressable
+                  style={styles.addSpecButton}
+                  onPress={addSpec}
+                  disabled={isSaving}
+                >
                   <Text style={styles.addSpecText}>
                     + Agregar especificación
                   </Text>
@@ -602,9 +723,18 @@ export default function ProductFormModal({
             </Field>
 
             {/* GUARDAR */}
-            <Pressable style={styles.saveButton} onPress={handleSave}>
+
+            <Pressable
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
               <Text style={styles.saveButtonText}>
-                {initialItem ? "Guardar cambios" : "Agregar al menú"}
+                {isSaving
+                  ? "Subiendo imagen..."
+                  : initialItem
+                    ? "Guardar cambios"
+                    : "Agregar al menú"}
               </Text>
             </Pressable>
           </ScrollView>
@@ -613,6 +743,10 @@ export default function ProductFormModal({
     </Modal>
   );
 }
+
+// =========================================================
+// FIELD
+// =========================================================
 
 function Field({
   label,
@@ -624,10 +758,15 @@ function Field({
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
+
       {children}
     </View>
   );
 }
+
+// =========================================================
+// STYLES
+// =========================================================
 
 const styles = StyleSheet.create({
   overlay: {
@@ -666,6 +805,10 @@ const styles = StyleSheet.create({
   form: {
     padding: menuSpacing.lg,
   },
+
+  // =======================================================
+  // IMAGEN
+  // =======================================================
 
   imagePicker: {
     width: "100%",
@@ -722,6 +865,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
+  // =======================================================
+  // CAMPOS
+  // =======================================================
+
   field: {
     marginBottom: menuSpacing.lg,
   },
@@ -748,6 +895,10 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
 
+  // =======================================================
+  // CATEGORÍAS
+  // =======================================================
+
   categoryOption: {
     backgroundColor: menuColors.surface,
     borderWidth: 1,
@@ -773,6 +924,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  // =======================================================
+  // GUARDAR
+  // =======================================================
+
   saveButton: {
     backgroundColor: menuColors.accent,
     borderRadius: menuRadius.md,
@@ -781,15 +936,19 @@ const styles = StyleSheet.create({
     marginTop: menuSpacing.sm,
   },
 
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+
   saveButtonText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 15,
   },
 
-  // =========================================================
+  // =======================================================
   // ESPECIFICACIONES
-  // =========================================================
+  // =======================================================
 
   specsContainer: {
     gap: menuSpacing.md,

@@ -1,4 +1,7 @@
+import { File } from "expo-file-system";
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
 const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
@@ -50,4 +53,34 @@ export const createOrder = async (orderData: {
   items: any[];
   total: number;
   studentName: string;
-}) => request("/orders", { method: "POST", body: JSON.stringify(orderData) });
+}) =>
+  request("/orders", {
+    method: "POST",
+    body: JSON.stringify(orderData),
+  });
+
+export async function uploadImage(imageUri: string) {
+  const file = new File(imageUri);
+
+  const formData = new FormData();
+
+  formData.append("image", file as any);
+
+  const response = await fetch(`${API_URL}/upload-image`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error ?? `Error HTTP ${response.status} al subir la imagen`,
+    );
+  }
+
+  return data as {
+    url: string;
+    publicId: string;
+  };
+}

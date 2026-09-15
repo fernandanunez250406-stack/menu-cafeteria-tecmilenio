@@ -1,5 +1,7 @@
 import { Request, Response, Router } from "express";
+import cloudinary from "../config/cloudinary.js";
 import { db } from "../config/firebase.js";
+import upload from "../middleware/upload.js";
 
 const router = Router();
 
@@ -20,7 +22,6 @@ const normalizeOption = (option: any, index: number, specId: string) => {
   }
 
   const rawPrice = Number(option.price);
-
   const price = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : 0;
 
   return {
@@ -28,11 +29,8 @@ const normalizeOption = (option: any, index: number, specId: string) => {
       typeof option.id === "string" && option.id.trim()
         ? option.id.trim()
         : createId(`option-${specId}-${index}`),
-
     label,
-
     price,
-
     isDefault: Boolean(option.isDefault),
   };
 };
@@ -191,9 +189,6 @@ const validateMenuItem = (item: any) => {
     return "La categoría es obligatoria";
   }
 
-  /**
-   * Validamos las especificaciones.
-   */
   if (!Array.isArray(item.specs)) {
     return "Las especificaciones no son válidas";
   }
@@ -240,12 +235,58 @@ const validateMenuItem = (item: any) => {
 };
 
 /**
+ * POST /api/upload-image
+ *
+ * Recibe una imagen desde la aplicación
+ * y la sube a Cloudinary.
+ */
+router.post(
+  "/upload-image",
+  upload.single("image"),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          error: "No se recibió ninguna imagen",
+        });
+      }
+
+      const result = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "cafeteria-tecmilenio/products",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          },
+        );
+
+        uploadStream.end(req.file!.buffer);
+      });
+
+      res.json({
+        url: result.secure_url,
+        publicId: result.public_id,
+      });
+    } catch (error) {
+      console.error("POST /upload-image", error);
+
+      res.status(500).json({
+        error: "Error al subir la imagen",
+      });
+    }
+  },
+);
+
+/**
  * GET /api/menu
  *
  * Obtiene todos los productos de Firebase.
- *
- * Los productos antiguos se convierten automáticamente
- * al formato nuevo.
  */
 router.get("/menu", async (_req: Request, res: Response) => {
   try {
@@ -325,11 +366,6 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
 
     const currentData = current.data() ?? {};
 
-    /**
-     * Normalizamos primero el producto
-     * existente. Esto permite editar productos
-     * antiguos sin perder sus datos.
-     */
     const normalizedCurrent = normalizeMenuItem(currentData);
 
     const merged = cleanMenuItem({
