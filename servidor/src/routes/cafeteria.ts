@@ -1,245 +1,187 @@
 import { Request, Response, Router } from "express";
+
 import cloudinary from "../config/cloudinary.js";
 import { db } from "../config/firebase.js";
 import upload from "../middleware/upload.js";
 
 const router = Router();
 
-const menuCollection = db.collection("menu");
+/* =========================================================
+   PRODUCTOS - OBTENER MENÚ
+========================================================= */
 
-const createId = (prefix: string) =>
-  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+router.get("/menu", async (_req: Request, res: Response) => {
+  try {
+    const snapshot = await db
+      .collection("menu")
+      .orderBy("createdAt", "desc")
+      .get();
 
-const normalizeOption = (option: any, index: number, specId: string) => {
-  if (!option || typeof option !== "object") {
-    return null;
+    const menu = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return res.status(200).json(menu);
+  } catch (error) {
+    console.error("Error obteniendo menú:", error);
+
+    return res.status(500).json({
+      error: "No se pudo obtener el menú",
+    });
   }
-
-  const label = String(option.label ?? "").trim();
-
-  if (!label) {
-    return null;
-  }
-
-  const rawPrice = Number(option.price);
-  const price = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : 0;
-
-  return {
-    id:
-      typeof option.id === "string" && option.id.trim()
-        ? option.id.trim()
-        : createId(`option-${specId}-${index}`),
-    label,
-    price,
-    isDefault: Boolean(option.isDefault),
-  };
-};
-
-const normalizeSpec = (spec: any, specIndex: number) => {
-  if (!spec || typeof spec !== "object") {
-    return null;
-  }
-
-  const label = String(spec.label ?? "").trim();
-
-  if (!label) {
-    return null;
-  }
-
-  const specId =
-    typeof spec.id === "string" && spec.id.trim()
-      ? spec.id.trim()
-      : createId(`spec-${specIndex}`);
-
-  if (Array.isArray(spec.options)) {
-    const options = spec.options
-      .map((option: any, optionIndex: number) =>
-        normalizeOption(option, optionIndex, specId),
-      )
-      .filter(
-        (
-          option: ReturnType<typeof normalizeOption>,
-        ): option is NonNullable<ReturnType<typeof normalizeOption>> =>
-          option !== null,
-      );
-
-    if (options.length === 0) {
-      return null;
-    }
-
-    const hasDefault = options.some(
-      (option: {
-        id: string;
-        label: string;
-        price: number;
-        isDefault: boolean;
-      }) => option.isDefault,
-    );
-
-    const normalizedOptions = options.map(
-      (
-        option: {
-          id: string;
-          label: string;
-          price: number;
-          isDefault: boolean;
-        },
-        index: number,
-      ) => ({
-        ...option,
-        isDefault: hasDefault ? option.isDefault : index === 0,
-      }),
-    );
-
-    return {
-      id: specId,
-      label,
-      options: normalizedOptions,
-    };
-  }
-
-  const oldValue = String(spec.value ?? "").trim();
-
-  if (oldValue) {
-    return {
-      id: specId,
-      label,
-      options: [
-        {
-          id: createId(`option-${specId}`),
-          label: oldValue,
-          price: 0,
-          isDefault: true,
-        },
-      ],
-    };
-  }
-
-  return null;
-};
-
-const normalizeSpecs = (specs: any) => {
-  if (!Array.isArray(specs)) {
-    return [];
-  }
-
-  return specs
-    .map((spec: any, index: number) => normalizeSpec(spec, index))
-    .filter(
-      (
-        spec: ReturnType<typeof normalizeSpec>,
-      ): spec is NonNullable<ReturnType<typeof normalizeSpec>> => spec !== null,
-    );
-};
-
-/**
- * Convierte documentos de Firebase al formato actual
- * que utiliza la aplicación.
- */
-const normalizeMenuItem = (data: any) => {
-  return {
-    categoryId: String(
-      data.categoryId ?? data.categoría ?? data.category ?? "",
-    ).trim(),
-
-    name: String(data.name ?? data.producto ?? "").trim(),
-
-    price: Number(data.price ?? data.precio),
-
-    emoji: String(data.emoji ?? "🍽️"),
-
-    photoUri: data.photoUri ?? null,
-
-    description: String(data.description ?? "").trim(),
-
-    specs: normalizeSpecs(data.specs),
-
-    available: data.available !== false,
-  };
-};
-
-const cleanMenuItem = (body: any) => ({
-  categoryId: String(body.categoryId ?? "").trim(),
-
-  name: String(body.name ?? "").trim(),
-
-  price: Number(body.price),
-
-  emoji: String(body.emoji ?? "🍽️"),
-
-  photoUri: body.photoUri ?? null,
-
-  description: String(body.description ?? "").trim(),
-
-  specs: normalizeSpecs(body.specs),
-
-  available: body.available !== false,
 });
 
-const validateMenuItem = (item: any) => {
-  if (!item.name) {
-    return "El nombre del producto es obligatorio";
-  }
+/* =========================================================
+   PRODUCTOS - CREAR
+========================================================= */
 
-  if (!Number.isFinite(item.price) || item.price < 0) {
-    return "El precio no es válido";
-  }
+router.post("/menu", async (req: Request, res: Response) => {
+  try {
+    const {
+      categoryId,
+      name,
+      price,
+      emoji,
+      photoUri,
+      description,
+      specs,
+      available,
+    } = req.body;
 
-  if (!item.categoryId) {
-    return "La categoría es obligatoria";
-  }
-
-  if (!Array.isArray(item.specs)) {
-    return "Las especificaciones no son válidas";
-  }
-
-  for (let specIndex = 0; specIndex < item.specs.length; specIndex++) {
-    const spec = item.specs[specIndex];
-
-    if (!spec || !String(spec.label ?? "").trim()) {
-      return `La especificación ${specIndex + 1} no tiene nombre`;
+    if (!name || price === undefined) {
+      return res.status(400).json({
+        error: "El producto necesita nombre y precio",
+      });
     }
 
-    if (!Array.isArray(spec.options) || spec.options.length === 0) {
-      return `La especificación "${spec.label}" debe tener al menos una opción`;
-    }
+    const now = new Date().toISOString();
 
-    const hasDefault = spec.options.some(
-      (option: any) => option.isDefault === true,
-    );
+    const product = {
+      categoryId: categoryId ?? "",
+      name,
+      price: Number(price),
+      emoji: emoji ?? "☕",
+      photoUri: photoUri ?? "",
+      description: description ?? "",
+      specs: specs ?? [],
+      available: available ?? true,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    if (!hasDefault) {
-      return `La especificación "${spec.label}" debe tener una opción predeterminada`;
-    }
+    const docRef = await db.collection("menu").add(product);
 
-    for (
-      let optionIndex = 0;
-      optionIndex < spec.options.length;
-      optionIndex++
-    ) {
-      const option = spec.options[optionIndex];
+    return res.status(201).json({
+      id: docRef.id,
+      ...product,
+    });
+  } catch (error) {
+    console.error("Error creando producto:", error);
 
-      if (!option || !String(option.label ?? "").trim()) {
-        return `La opción ${
-          optionIndex + 1
-        } de "${spec.label}" no tiene nombre`;
-      }
-
-      if (!Number.isFinite(option.price) || option.price < 0) {
-        return `El precio de "${option.label}" no es válido`;
-      }
-    }
+    return res.status(500).json({
+      error: "No se pudo crear el producto",
+    });
   }
+});
 
-  return null;
-};
+/* =========================================================
+   PRODUCTOS - ACTUALIZAR
+========================================================= */
 
-/**
- * POST /api/upload-image
- *
- * Recibe una imagen desde la aplicación
- * y la sube a Cloudinary.
- */
+router.put("/menu/:id", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      return res.status(400).json({
+        error: "Falta el ID del producto",
+      });
+    }
+
+    const productRef = db.collection("menu").doc(id);
+
+    const productSnapshot = await productRef.get();
+
+    if (!productSnapshot.exists) {
+      return res.status(404).json({
+        error: "Producto no encontrado",
+      });
+    }
+
+    const existingData = productSnapshot.data() ?? {};
+
+    const updatedData = {
+      ...req.body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    /*
+     * Conservamos los datos existentes si el frontend
+     * solamente manda algunos campos, por ejemplo
+     * available.
+     */
+    const finalData = {
+      ...existingData,
+      ...updatedData,
+    };
+
+    await productRef.update(finalData);
+
+    return res.status(200).json({
+      id,
+      ...finalData,
+    });
+  } catch (error) {
+    console.error("Error actualizando producto:", error);
+
+    return res.status(500).json({
+      error: "No se pudo actualizar el producto",
+    });
+  }
+});
+
+/* =========================================================
+   PRODUCTOS - ELIMINAR
+========================================================= */
+
+router.delete("/menu/:id", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    if (!id) {
+      return res.status(400).json({
+        error: "Falta el ID del producto",
+      });
+    }
+
+    const productRef = db.collection("menu").doc(id);
+
+    const productSnapshot = await productRef.get();
+
+    if (!productSnapshot.exists) {
+      return res.status(404).json({
+        error: "Producto no encontrado",
+      });
+    }
+
+    await productRef.delete();
+
+    return res.status(200).json({
+      id,
+      message: "Producto eliminado correctamente",
+    });
+  } catch (error) {
+    console.error("Error eliminando producto:", error);
+
+    return res.status(500).json({
+      error: "No se pudo eliminar el producto",
+    });
+  }
+});
+
+/* =========================================================
+   PRODUCTOS - SUBIR IMAGEN
+========================================================= */
+
 router.post(
   "/upload-image",
   upload.single("image"),
@@ -252,7 +194,7 @@ router.post(
       }
 
       const result = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
+        const stream = cloudinary.uploader.upload_stream(
           {
             folder: "cafeteria-tecmilenio/products",
             resource_type: "image",
@@ -266,201 +208,263 @@ router.post(
           },
         );
 
-        uploadStream.end(req.file!.buffer);
+        stream.end(req.file!.buffer);
       });
 
-      res.json({
+      return res.status(200).json({
         url: result.secure_url,
         publicId: result.public_id,
       });
     } catch (error) {
-      console.error("POST /upload-image", error);
+      console.error("Error subiendo imagen de producto:", error);
 
-      res.status(500).json({
-        error: "Error al subir la imagen",
+      return res.status(500).json({
+        error: "No se pudo subir la imagen",
       });
     }
   },
 );
 
-/**
- * GET /api/menu
- *
- * Obtiene todos los productos de Firebase.
- */
-router.get("/menu", async (_req: Request, res: Response) => {
+/* =========================================================
+   ÓRDENES - CREAR
+========================================================= */
+
+router.post("/orders", async (req: Request, res: Response) => {
   try {
-    const snapshot = await menuCollection.get();
+    const { items, total, studentName } = req.body;
 
-    const menu = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...normalizeMenuItem(doc.data()),
-    }));
-
-    res.json(menu);
-  } catch (error) {
-    console.error("GET /menu", error);
-
-    res.status(500).json({
-      error: "Error al obtener el menú",
-    });
-  }
-});
-
-/**
- * POST /api/menu
- *
- * Crea un producto nuevo.
- */
-router.post("/menu", async (req: Request, res: Response) => {
-  try {
-    const item = cleanMenuItem(req.body);
-
-    const validationError = validateMenuItem(item);
-
-    if (validationError) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
-        error: validationError,
+        error: "La orden debe contener productos",
+      });
+    }
+
+    if (total === undefined || total === null) {
+      return res.status(400).json({
+        error: "La orden necesita un total",
+      });
+    }
+
+    if (!studentName) {
+      return res.status(400).json({
+        error: "La orden necesita el nombre del alumno",
       });
     }
 
     const now = new Date().toISOString();
 
-    const docRef = await menuCollection.add({
-      ...item,
+    const order = {
+      items,
+      total: Number(total),
+      studentName,
+      status: "pending",
       createdAt: now,
       updatedAt: now,
-    });
-
-    res.status(201).json({
-      id: docRef.id,
-      ...item,
-    });
-  } catch (error) {
-    console.error("POST /menu", error);
-
-    res.status(500).json({
-      error: "Error al guardar el producto",
-    });
-  }
-});
-
-/**
- * PUT /api/menu/:id
- *
- * Actualiza un producto existente.
- */
-router.put("/menu/:id", async (req: Request, res: Response) => {
-  try {
-    const ref = menuCollection.doc(String(req.params.id));
-
-    const current = await ref.get();
-
-    if (!current.exists) {
-      return res.status(404).json({
-        error: "Producto no encontrado",
-      });
-    }
-
-    const body = req.body ?? {};
-
-    const currentData = current.data() ?? {};
-
-    const normalizedCurrent = normalizeMenuItem(currentData);
-
-    const merged = cleanMenuItem({
-      ...normalizedCurrent,
-      ...body,
-    });
-
-    const validationError = validateMenuItem(merged);
-
-    if (validationError) {
-      return res.status(400).json({
-        error: validationError,
-      });
-    }
-
-    await ref.update({
-      ...merged,
-      updatedAt: new Date().toISOString(),
-    });
-
-    res.json({
-      id: ref.id,
-      ...merged,
-    });
-  } catch (error) {
-    console.error(`PUT /menu/${req.params.id}`, error);
-
-    res.status(500).json({
-      error: "Error al actualizar el producto",
-    });
-  }
-});
-
-/**
- * DELETE /api/menu/:id
- *
- * Elimina un producto.
- */
-router.delete("/menu/:id", async (req: Request, res: Response) => {
-  try {
-    const ref = menuCollection.doc(String(req.params.id));
-
-    const current = await ref.get();
-
-    if (!current.exists) {
-      return res.status(404).json({
-        error: "Producto no encontrado",
-      });
-    }
-
-    await ref.delete();
-
-    res.json({
-      id: ref.id,
-    });
-  } catch (error) {
-    console.error(`DELETE /menu/${req.params.id}`, error);
-
-    res.status(500).json({
-      error: "Error al eliminar el producto",
-    });
-  }
-});
-
-/**
- * POST /api/orders
- *
- * Crea una orden en Firebase.
- */
-router.post("/orders", async (req: Request, res: Response) => {
-  try {
-    const { items, total, studentName } = req.body;
-
-    const authCode = Math.floor(1000 + Math.random() * 9000).toString();
-
-    const newOrder = {
-      items,
-      total,
-      studentName,
-      authCode,
-      status: "pendiente",
-      createdAt: new Date().toISOString(),
     };
 
-    const docRef = await db.collection("orders").add(newOrder);
+    const docRef = await db.collection("orders").add(order);
 
-    res.status(201).json({
+    return res.status(201).json({
       id: docRef.id,
-      ...newOrder,
+      ...order,
     });
   } catch (error) {
-    console.error("POST /orders", error);
+    console.error("Error creando orden:", error);
 
-    res.status(500).json({
-      error: "Error al crear la orden",
+    return res.status(500).json({
+      error: "No se pudo crear la orden",
+    });
+  }
+});
+
+/* =========================================================
+   PROMOCIONES - OBTENER
+========================================================= */
+
+router.get("/promotions", async (_req: Request, res: Response) => {
+  try {
+    const promotionRef = db.collection("promotions").doc("current");
+
+    const snapshot = await promotionRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(200).json(null);
+    }
+
+    return res.status(200).json({
+      id: snapshot.id,
+      ...snapshot.data(),
+    });
+  } catch (error) {
+    console.error("Error obteniendo promoción:", error);
+
+    return res.status(500).json({
+      error: "No se pudo obtener la promoción",
+    });
+  }
+});
+
+/* =========================================================
+   PROMOCIONES - SUBIR IMAGEN
+========================================================= */
+
+router.post(
+  "/upload-promo-image",
+  upload.single("image"),
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          error: "No se recibió ninguna imagen",
+        });
+      }
+
+      const result = await new Promise<any>((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "cafeteria-tecmilenio/promotions",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          },
+        );
+
+        stream.end(req.file!.buffer);
+      });
+
+      return res.status(200).json({
+        url: result.secure_url,
+        publicId: result.public_id,
+      });
+    } catch (error) {
+      console.error("Error subiendo imagen de promoción:", error);
+
+      return res.status(500).json({
+        error: "No se pudo subir la imagen de promoción",
+      });
+    }
+  },
+);
+
+/* =========================================================
+   PROMOCIONES - GUARDAR / ACTUALIZAR
+========================================================= */
+
+router.put("/promotions", async (req: Request, res: Response) => {
+  try {
+    const { imageUrl, publicId } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({
+        error: "La promoción necesita una imagen",
+      });
+    }
+
+    const promotionRef = db.collection("promotions").doc("current");
+
+    const previousSnapshot = await promotionRef.get();
+
+    const previousData = previousSnapshot.exists
+      ? previousSnapshot.data()
+      : null;
+
+    const promotion = {
+      imageUrl,
+      publicId: publicId ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await promotionRef.set(promotion);
+
+    /*
+     * Si existía una imagen anterior y es diferente,
+     * intentamos eliminarla de Cloudinary.
+     */
+    if (previousData?.publicId && previousData.publicId !== publicId) {
+      try {
+        await cloudinary.uploader.destroy(previousData.publicId, {
+          resource_type: "image",
+        });
+      } catch (cloudinaryError) {
+        console.error(
+          "Error eliminando imagen anterior de Cloudinary:",
+          cloudinaryError,
+        );
+      }
+    }
+
+    return res.status(200).json({
+      id: "current",
+      ...promotion,
+    });
+  } catch (error) {
+    console.error("Error guardando promoción:", error);
+
+    return res.status(500).json({
+      error: "No se pudo guardar la promoción",
+    });
+  }
+});
+
+/* =========================================================
+   PROMOCIONES - ELIMINAR
+========================================================= */
+
+router.delete("/promotions", async (_req: Request, res: Response) => {
+  try {
+    const promotionRef = db.collection("promotions").doc("current");
+
+    const promotionSnapshot = await promotionRef.get();
+
+    /*
+     * Si no existe una promoción, no es un error.
+     */
+    if (!promotionSnapshot.exists) {
+      return res.status(200).json({
+        message: "No había ninguna promoción para eliminar",
+      });
+    }
+
+    const promotionData = promotionSnapshot.data();
+
+    /*
+     * Primero eliminamos Firestore.
+     */
+    await promotionRef.delete();
+
+    /*
+     * Después intentamos eliminar la imagen
+     * correspondiente de Cloudinary.
+     *
+     * Si Cloudinary falla, no hacemos fallar
+     * la eliminación de Firestore.
+     */
+    if (promotionData?.publicId) {
+      try {
+        await cloudinary.uploader.destroy(promotionData.publicId, {
+          resource_type: "image",
+        });
+      } catch (cloudinaryError) {
+        console.error(
+          "Error eliminando imagen de Cloudinary:",
+          cloudinaryError,
+        );
+      }
+    }
+
+    return res.status(200).json({
+      message: "Promoción eliminada correctamente",
+    });
+  } catch (error) {
+    console.error("Error eliminando promoción:", error);
+
+    return res.status(500).json({
+      error: "No se pudo eliminar la promoción",
     });
   }
 });

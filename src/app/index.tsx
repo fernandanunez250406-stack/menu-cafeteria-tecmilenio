@@ -1,9 +1,12 @@
 import { useRouter } from "expo-router";
+
 import { useEffect, useRef, useState } from "react";
 
 import {
+  Alert,
   Dimensions,
   FlatList,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,39 +14,21 @@ import {
   View,
 } from "react-native";
 
+import * as ImagePicker from "expo-image-picker";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
 
+import {
+  deletePromotion,
+  getPromotion,
+  savePromotion,
+  uploadPromoImage,
+  type Promotion,
+} from "@/services/api";
+
 import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
-
-type Promo = {
-  id: string;
-  emoji: string;
-  title: string;
-  subtitle: string;
-};
-
-const promos: Promo[] = [
-  {
-    id: "1",
-    emoji: "☕",
-    title: "2x1 en Latte Vainilla",
-    subtitle: "Todos los martes, 8am–11am",
-  },
-  {
-    id: "2",
-    emoji: "🥐",
-    title: "Combo desayuno",
-    subtitle: "Café + pan dulce por $35",
-  },
-  {
-    id: "3",
-    emoji: "🍋",
-    title: "Limonada Menta",
-    subtitle: "Refréscate esta semana a $30",
-  },
-];
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -61,12 +46,18 @@ const SLIDE_HEIGHT = IS_WEB
 
 const SLIDE_INTERVAL_MS = 4000;
 
-function PromoCarousel() {
+function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const listRef = useRef<FlatList<Promo>>(null);
+  const listRef = useRef<FlatList<Promotion>>(null);
+
+  const promos = promotion ? [promotion] : [];
 
   useEffect(() => {
+    if (promos.length <= 1) {
+      return;
+    }
+
     const timer = setInterval(() => {
       setActiveIndex((prev) => {
         const next = (prev + 1) % promos.length;
@@ -81,7 +72,31 @@ function PromoCarousel() {
     }, SLIDE_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [promos.length]);
+
+  if (!promotion) {
+    return (
+      <View style={styles.carouselContainer}>
+        <View
+          style={[
+            styles.emptyPromo,
+            {
+              width: SLIDE_WIDTH,
+              height: SLIDE_HEIGHT,
+            },
+          ]}
+        >
+          <Text style={styles.emptyPromoEmoji}>☕</Text>
+
+          <Text style={styles.emptyPromoTitle}>Bienvenidos a Mas Café</Text>
+
+          <Text style={styles.emptyPromoSubtitle}>
+            Consulta nuestras promociones próximamente.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.carouselContainer}>
@@ -117,24 +132,26 @@ function PromoCarousel() {
                 },
               ]}
             >
-              <Text style={styles.promoEmoji}>{item.emoji}</Text>
-
-              <Text style={styles.promoTitle}>{item.title}</Text>
-
-              <Text style={styles.promoSubtitle}>{item.subtitle}</Text>
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.promoImage}
+                resizeMode="cover"
+              />
             </View>
           </View>
         )}
       />
 
-      <View style={styles.dots}>
-        {promos.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === activeIndex && styles.dotActive]}
-          />
-        ))}
-      </View>
+      {promos.length > 1 && (
+        <View style={styles.dots}>
+          {promos.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === activeIndex && styles.dotActive]}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -144,19 +161,197 @@ export default function HomeScreen() {
 
   const [adminModalVisible, setAdminModalVisible] = useState(false);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [promotion, setPromotion] = useState<Promotion | null>(null);
+
+  const [isLoadingPromotion, setIsLoadingPromotion] = useState(true);
+
+  const [isSavingPromotion, setIsSavingPromotion] = useState(false);
+
   // Doble toque para móvil
   const lastPressTimeRef = useRef(0);
 
+  /*
+   * Cargar promoción desde Firebase
+   */
+  useEffect(() => {
+    loadPromotion();
+  }, []);
+
+  const loadPromotion = async () => {
+    try {
+      setIsLoadingPromotion(true);
+
+      const data = await getPromotion();
+
+      setPromotion(data);
+    } catch (error) {
+      console.error("Error cargando promoción:", error);
+    } finally {
+      setIsLoadingPromotion(false);
+    }
+  };
+
+  /*
+   * Abrir login de administrador
+   */
   const handleAdminSecretTrigger = () => {
     const now = Date.now();
 
     if (now - lastPressTimeRef.current < 600) {
       setAdminModalVisible(true);
+
       lastPressTimeRef.current = 0;
+
       return;
     }
 
     lastPressTimeRef.current = now;
+  };
+
+  /*
+   * Seleccionar nueva imagen
+   */
+  const handleSelectPromotionImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permiso necesario",
+          "Necesitamos permiso para seleccionar una imagen.",
+        );
+
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        return;
+      }
+
+      const imageUri = result.assets[0].uri;
+
+      setIsSavingPromotion(true);
+
+      /*
+       * 1. Subir imagen a Cloudinary
+       */
+      const uploaded = await uploadPromoImage(imageUri);
+
+      /*
+       * 2. Guardar URL + publicId en Firestore
+       */
+      const saved = await savePromotion({
+        imageUrl: uploaded.url,
+        publicId: uploaded.publicId,
+      });
+
+      /*
+       * 3. Actualizar inmediatamente la pantalla
+       */
+      setPromotion(saved);
+
+      Alert.alert(
+        "Promoción actualizada",
+        "La imagen de promoción se guardó correctamente.",
+      );
+    } catch (error) {
+      console.error("Error actualizando promoción:", error);
+
+      Alert.alert(
+        "Error",
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar la promoción.",
+      );
+    } finally {
+      setIsSavingPromotion(false);
+    }
+  };
+
+  /*
+   * Eliminar promoción
+   */
+
+  const handleDeletePromotion = () => {
+    if (!promotion) {
+      return;
+    }
+
+    const executeDelete = async () => {
+      try {
+        setIsSavingPromotion(true);
+
+        await deletePromotion();
+
+        // Actualizar inmediatamente la interfaz
+        setPromotion(null);
+
+        if (IS_WEB) {
+          window.alert("La promoción se eliminó correctamente.");
+        } else {
+          Alert.alert(
+            "Promoción eliminada",
+            "La promoción se eliminó correctamente.",
+          );
+        }
+      } catch (error) {
+        console.error("Error eliminando promoción:", error);
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar la promoción.";
+
+        if (IS_WEB) {
+          window.alert(`Error: ${message}`);
+        } else {
+          Alert.alert("Error", message);
+        }
+      } finally {
+        setIsSavingPromotion(false);
+      }
+    };
+
+    if (IS_WEB) {
+      const confirmed = window.confirm(
+        "¿Seguro que quieres eliminar la promoción actual?",
+      );
+
+      if (confirmed) {
+        void executeDelete();
+      }
+
+      return;
+    }
+
+    // MÓVIL: conservar exactamente el comportamiento actual
+    Alert.alert(
+      "Eliminar promoción",
+      "¿Seguro que quieres eliminar la promoción actual?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => {
+            void executeDelete();
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -168,7 +363,6 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
 
-        {/* Acceso oculto para móvil */}
         <Pressable onPress={handleAdminSecretTrigger} hitSlop={15}>
           <Text style={styles.brandTitle}>Mas Café</Text>
         </Pressable>
@@ -178,7 +372,57 @@ export default function HomeScreen() {
           CARRUSEL
       ========================= */}
 
-      <PromoCarousel />
+      <PromoCarousel promotion={promotion} />
+
+      {/* =========================
+          ADMINISTRACIÓN
+      ========================= */}
+
+      {isAdmin && (
+        <View style={styles.adminPanel}>
+          <Text style={styles.adminTitle}>Administración de promoción</Text>
+
+          <Text style={styles.adminSubtitle}>
+            {promotion
+              ? "Puedes cambiar o eliminar la imagen actual."
+              : "Todavía no hay una promoción publicada."}
+          </Text>
+
+          <View style={styles.adminActions}>
+            <Pressable
+              disabled={isSavingPromotion}
+              onPress={handleSelectPromotionImage}
+              style={({ pressed }) => [
+                styles.adminActionButton,
+                pressed && !isSavingPromotion && styles.buttonPressed,
+                isSavingPromotion && styles.disabledButton,
+              ]}
+            >
+              <Text style={styles.adminActionText}>
+                {isSavingPromotion
+                  ? "Guardando..."
+                  : promotion
+                    ? "Cambiar imagen"
+                    : "Subir promoción"}
+              </Text>
+            </Pressable>
+
+            {promotion && (
+              <Pressable
+                disabled={isSavingPromotion}
+                onPress={handleDeletePromotion}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && !isSavingPromotion && styles.buttonPressed,
+                  isSavingPromotion && styles.disabledButton,
+                ]}
+              >
+                <Text style={styles.deleteButtonText}>Eliminar</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* =========================
           BOTÓN MENÚ
@@ -200,7 +444,7 @@ export default function HomeScreen() {
           ACCESO ADMINISTRADOR WEB
       ========================= */}
 
-      {Platform.OS === "web" && (
+      {!isAdmin && Platform.OS === "web" && (
         <Pressable
           onPress={() => setAdminModalVisible(true)}
           style={({ pressed }) => [
@@ -213,6 +457,22 @@ export default function HomeScreen() {
       )}
 
       {/* =========================
+          CERRAR ADMIN
+      ========================= */}
+
+      {isAdmin && (
+        <Pressable
+          onPress={() => setIsAdmin(false)}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.webAdminButtonPressed,
+          ]}
+        >
+          <Text style={styles.webAdminText}>Cerrar administración</Text>
+        </Pressable>
+      )}
+
+      {/* =========================
           LOGIN ADMINISTRADOR
       ========================= */}
 
@@ -221,7 +481,7 @@ export default function HomeScreen() {
         onClose={() => setAdminModalVisible(false)}
         onSuccess={() => {
           setAdminModalVisible(false);
-          router.push("/menu");
+          setIsAdmin(true);
         }}
       />
     </SafeAreaView>
@@ -237,9 +497,7 @@ const styles = StyleSheet.create({
     paddingBottom: IS_WEB ? menuSpacing.md : menuSpacing.xl,
   },
 
-  // =========================
   // ENCABEZADO
-  // =========================
 
   header: {
     alignItems: "center",
@@ -263,9 +521,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // =========================
   // CARRUSEL
-  // =========================
 
   carouselContainer: {
     width: "100%",
@@ -278,30 +534,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // =========================
-  // TARJETA DE PROMOCIÓN
-  // =========================
-
   promoCard: {
     backgroundColor: "#F7F3EE",
     borderRadius: menuRadius.lg,
     borderWidth: 1,
     borderColor: "#DDDDDD",
-    paddingHorizontal: menuSpacing.lg,
-    paddingVertical: IS_WEB ? 20 : 30,
+    overflow: "hidden",
+  },
+
+  promoImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  emptyPromo: {
+    backgroundColor: "#F7F3EE",
+    borderRadius: menuRadius.lg,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: menuSpacing.lg,
     gap: menuSpacing.sm,
   },
 
-  promoEmoji: {
-    fontSize: IS_WEB ? 32 : 38,
-    textAlign: "center",
-    alignSelf: "center",
+  emptyPromoEmoji: {
+    fontSize: 40,
     marginBottom: 4,
   },
 
-  promoTitle: {
+  emptyPromoTitle: {
     ...menuTypography.title,
     fontSize: 18,
     fontWeight: "700",
@@ -309,15 +571,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  promoSubtitle: {
+  emptyPromoSubtitle: {
     ...menuTypography.body,
     color: "#666666",
     textAlign: "center",
   },
 
-  // =========================
   // INDICADORES
-  // =========================
 
   dots: {
     flexDirection: "row",
@@ -339,9 +599,77 @@ const styles = StyleSheet.create({
     width: 18,
   },
 
-  // =========================
+  // ADMINISTRACIÓN
+
+  adminPanel: {
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
+    marginTop: 16,
+    padding: menuSpacing.md,
+    backgroundColor: "#F7F3EE",
+    borderRadius: menuRadius.md,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+  },
+
+  adminTitle: {
+    ...menuTypography.title,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#222222",
+    textAlign: "center",
+  },
+
+  adminSubtitle: {
+    ...menuTypography.body,
+    fontSize: 13,
+    color: "#666666",
+    textAlign: "center",
+    marginTop: 4,
+  },
+
+  adminActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+
+  adminActionButton: {
+    backgroundColor: "#7A4B2A",
+    borderRadius: menuRadius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+
+  adminActionText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  deleteButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#C94A4A",
+    borderRadius: menuRadius.md,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+
+  deleteButtonText: {
+    color: "#C94A4A",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  disabledButton: {
+    opacity: 0.5,
+  },
+
   // BOTÓN MENÚ
-  // =========================
 
   menuButton: {
     backgroundColor: "#7A4B2A",
@@ -361,9 +689,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // =========================
   // ADMINISTRADOR WEB
-  // =========================
 
   webAdminButton: {
     alignSelf: "center",
@@ -378,5 +704,15 @@ const styles = StyleSheet.create({
   webAdminText: {
     fontSize: 11,
     color: "#999999",
+  },
+
+  logoutButton: {
+    alignSelf: "center",
+    marginTop: 4,
+    padding: 6,
+  },
+
+  buttonPressed: {
+    opacity: 0.75,
   },
 });
