@@ -1,7 +1,6 @@
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-
 import { useEffect, useRef, useState } from "react";
-
 import {
   Alert,
   Dimensions,
@@ -13,13 +12,11 @@ import {
   Text,
   View,
 } from "react-native";
-
-import * as ImagePicker from "expo-image-picker";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
-
+import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
+import { useAdmin } from "@/context/AdminContext";
 import {
   deletePromotion,
   getPromotion,
@@ -27,8 +24,6 @@ import {
   uploadPromoImage,
   type Promotion,
 } from "@/services/api";
-
-import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -114,9 +109,9 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
           offset: CONTAINER_WIDTH * index,
           index,
         })}
-        onMomentumScrollEnd={(e) => {
+        onMomentumScrollEnd={(event) => {
           const newIndex = Math.round(
-            e.nativeEvent.contentOffset.x / CONTAINER_WIDTH,
+            event.nativeEvent.contentOffset.x / CONTAINER_WIDTH,
           );
 
           setActiveIndex(newIndex);
@@ -144,10 +139,10 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
 
       {promos.length > 1 && (
         <View style={styles.dots}>
-          {promos.map((_, i) => (
+          {promos.map((_, index) => (
             <View
-              key={i}
-              style={[styles.dot, i === activeIndex && styles.dotActive]}
+              key={index}
+              style={[styles.dot, index === activeIndex && styles.dotActive]}
             />
           ))}
         </View>
@@ -159,9 +154,14 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
 export default function HomeScreen() {
   const router = useRouter();
 
-  const [adminModalVisible, setAdminModalVisible] = useState(false);
+  /*
+   * IMPORTANTE:
+   * El estado de administrador ahora viene del AdminContext.
+   * Así index.tsx y order.tsx utilizan exactamente la misma sesión.
+   */
+  const { isAdmin, logout } = useAdmin();
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminModalVisible, setAdminModalVisible] = useState(false);
 
   const [promotion, setPromotion] = useState<Promotion | null>(null);
 
@@ -169,14 +169,11 @@ export default function HomeScreen() {
 
   const [isSavingPromotion, setIsSavingPromotion] = useState(false);
 
-  // Doble toque para móvil
+  // Doble toque para abrir el acceso de administrador en móvil.
   const lastPressTimeRef = useRef(0);
 
-  /*
-   * Cargar promoción desde Firebase
-   */
   useEffect(() => {
-    loadPromotion();
+    void loadPromotion();
   }, []);
 
   const loadPromotion = async () => {
@@ -193,27 +190,23 @@ export default function HomeScreen() {
     }
   };
 
-  /*
-   * Abrir login de administrador
-   */
   const handleAdminSecretTrigger = () => {
     const now = Date.now();
 
     if (now - lastPressTimeRef.current < 600) {
       setAdminModalVisible(true);
-
       lastPressTimeRef.current = 0;
-
       return;
     }
 
     lastPressTimeRef.current = now;
   };
 
-  /*
-   * Seleccionar nueva imagen
-   */
   const handleSelectPromotionImage = async () => {
+    if (!isAdmin) {
+      return;
+    }
+
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -242,22 +235,16 @@ export default function HomeScreen() {
 
       setIsSavingPromotion(true);
 
-      /*
-       * 1. Subir imagen a Cloudinary
-       */
+      // 1. Subir imagen a Cloudinary.
       const uploaded = await uploadPromoImage(imageUri);
 
-      /*
-       * 2. Guardar URL + publicId en Firestore
-       */
+      // 2. Guardar URL + publicId en Firestore.
       const saved = await savePromotion({
         imageUrl: uploaded.url,
         publicId: uploaded.publicId,
       });
 
-      /*
-       * 3. Actualizar inmediatamente la pantalla
-       */
+      // 3. Actualizar inmediatamente la pantalla.
       setPromotion(saved);
 
       Alert.alert(
@@ -278,12 +265,8 @@ export default function HomeScreen() {
     }
   };
 
-  /*
-   * Eliminar promoción
-   */
-
   const handleDeletePromotion = () => {
-    if (!promotion) {
+    if (!isAdmin || !promotion) {
       return;
     }
 
@@ -293,7 +276,6 @@ export default function HomeScreen() {
 
         await deletePromotion();
 
-        // Actualizar inmediatamente la interfaz
         setPromotion(null);
 
         if (IS_WEB) {
@@ -334,7 +316,6 @@ export default function HomeScreen() {
       return;
     }
 
-    // MÓVIL: conservar exactamente el comportamiento actual
     Alert.alert(
       "Eliminar promoción",
       "¿Seguro que quieres eliminar la promoción actual?",
@@ -376,6 +357,8 @@ export default function HomeScreen() {
 
       {/* =========================
           ADMINISTRACIÓN
+
+          SOLAMENTE ADMIN
       ========================= */}
 
       {isAdmin && (
@@ -444,7 +427,7 @@ export default function HomeScreen() {
           ACCESO ADMINISTRADOR WEB
       ========================= */}
 
-      {!isAdmin && Platform.OS === "web" && (
+      {!isAdmin && IS_WEB && (
         <Pressable
           onPress={() => setAdminModalVisible(true)}
           style={({ pressed }) => [
@@ -462,7 +445,7 @@ export default function HomeScreen() {
 
       {isAdmin && (
         <Pressable
-          onPress={() => setIsAdmin(false)}
+          onPress={logout}
           style={({ pressed }) => [
             styles.logoutButton,
             pressed && styles.webAdminButtonPressed,
@@ -480,8 +463,11 @@ export default function HomeScreen() {
         visible={adminModalVisible}
         onClose={() => setAdminModalVisible(false)}
         onSuccess={() => {
+          /*
+           * AdminLoginModal ya ejecuta login()
+           * mediante AdminContext.
+           */
           setAdminModalVisible(false);
-          setIsAdmin(true);
         }}
       />
     </SafeAreaView>
@@ -496,8 +482,6 @@ const styles = StyleSheet.create({
     paddingTop: IS_WEB ? menuSpacing.md : menuSpacing.xl,
     paddingBottom: IS_WEB ? menuSpacing.md : menuSpacing.xl,
   },
-
-  // ENCABEZADO
 
   header: {
     alignItems: "center",
@@ -520,8 +504,6 @@ const styles = StyleSheet.create({
     color: "#222222",
     textAlign: "center",
   },
-
-  // CARRUSEL
 
   carouselContainer: {
     width: "100%",
@@ -577,8 +559,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // INDICADORES
-
   dots: {
     flexDirection: "row",
     justifyContent: "center",
@@ -598,8 +578,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#7A4B2A",
     width: 18,
   },
-
-  // ADMINISTRACIÓN
 
   adminPanel: {
     width: "100%",
@@ -669,8 +647,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // BOTÓN MENÚ
-
   menuButton: {
     backgroundColor: "#7A4B2A",
     paddingVertical: menuSpacing.md + 4,
@@ -688,8 +664,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 16,
   },
-
-  // ADMINISTRADOR WEB
 
   webAdminButton: {
     alignSelf: "center",

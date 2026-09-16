@@ -9,13 +9,13 @@ import {
 
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  menuColors,
-  menuRadius,
-  menuSpacing,
-} from "@/constants/menuTheme";
+import { menuColors, menuRadius, menuSpacing } from "@/constants/menuTheme";
+
+import { useAdmin } from "@/context/AdminContext";
 
 export default function AppTabs() {
+  const { isAdmin } = useAdmin();
+
   return (
     <Tabs>
       <TabSlot style={styles.tabSlot} />
@@ -30,12 +30,15 @@ export default function AppTabs() {
             <TabButton>Menú</TabButton>
           </TabTrigger>
 
-          <TabTrigger name="cart" href="/cart" asChild>
-            <TabButton>Carrito</TabButton>
-          </TabTrigger>
+          {/* El carrito solo tiene sentido para el cliente */}
+          {!isAdmin && (
+            <TabTrigger name="cart" href="/cart" asChild>
+              <TabButton>Carrito</TabButton>
+            </TabTrigger>
+          )}
 
           <TabTrigger name="order" href="/order" asChild>
-            <TabButton>Pedidos</TabButton>
+            <TabButton>{isAdmin ? "Pedidos (admin)" : "Pedidos"}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
@@ -43,31 +46,16 @@ export default function AppTabs() {
   );
 }
 
-function TabButton({
-  children,
-  isFocused,
-  ...props
-}: TabTriggerSlotProps) {
+function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
     <Pressable
       {...props}
-      style={({ pressed }) => [
-        styles.tabButton,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.tabButton, pressed && styles.pressed]}
     >
       <View
-        style={[
-          styles.tabButtonView,
-          isFocused && styles.tabButtonViewFocused,
-        ]}
+        style={[styles.tabButtonView, isFocused && styles.tabButtonViewFocused]}
       >
-        <Text
-          style={[
-            styles.tabText,
-            isFocused && styles.tabTextFocused,
-          ]}
-        >
+        <Text style={[styles.tabText, isFocused && styles.tabTextFocused]}>
           {children}
         </Text>
       </View>
@@ -78,9 +66,7 @@ function TabButton({
 function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
-      <View style={styles.innerContainer}>
-        {props.children}
-      </View>
+      <View style={styles.innerContainer}>{props.children}</View>
     </View>
   );
 }

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
   Alert,
   FlatList,
@@ -5,6 +7,7 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -25,8 +28,11 @@ export default function CartScreen() {
     removeFromCart,
     totalItems,
     totalPrice,
-    createLocalOrder,
+    createOrder,
   } = useCart();
+
+  const [studentName, setStudentName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -148,6 +154,16 @@ export default function CartScreen() {
 
           {/* RESUMEN */}
           <View style={styles.footer}>
+            <Text style={styles.nameLabel}>Tu nombre</Text>
+
+            <TextInput
+              style={styles.nameInput}
+              placeholder="Ej. Fernanda Núñez"
+              placeholderTextColor="#999999"
+              value={studentName}
+              onChangeText={setStudentName}
+            />
+
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
 
@@ -155,11 +171,20 @@ export default function CartScreen() {
             </View>
 
             <Pressable
+              disabled={submitting}
               style={({ pressed }) => [
                 styles.orderButton,
-                pressed && styles.orderButtonPressed,
+                (pressed || submitting) && styles.orderButtonPressed,
               ]}
               onPress={() => {
+                if (!studentName.trim()) {
+                  Alert.alert(
+                    "Falta tu nombre",
+                    "Escribe tu nombre para identificar tu pedido.",
+                  );
+                  return;
+                }
+
                 Alert.alert(
                   "Confirmar pedido",
                   `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
@@ -170,13 +195,19 @@ export default function CartScreen() {
                     },
                     {
                       text: "Confirmar",
-                      onPress: () => {
-                        const order = createLocalOrder();
+                      onPress: async () => {
+                        setSubmitting(true);
 
-                        if(order){
+                        const order = await createOrder(studentName);
+
+                        setSubmitting(false);
+
+                        if (order) {
+                          setStudentName("");
+
                           Alert.alert(
                             "Pedido realizado",
-                            `Tu pedido fue registrado. \nCódigo: ${order.authCode}`
+                            `Tu pedido fue registrado. \nCódigo: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
                           );
                         }
                       },
@@ -185,7 +216,9 @@ export default function CartScreen() {
                 );
               }}
             >
-              <Text style={styles.orderButtonText}>Realizar pedido</Text>
+              <Text style={styles.orderButtonText}>
+                {submitting ? "Enviando..." : "Realizar pedido"}
+              </Text>
             </Pressable>
           </View>
         </>
@@ -431,6 +464,24 @@ const styles = StyleSheet.create({
     backgroundColor: menuColors.surface,
     borderTopWidth: 1,
     borderColor: menuColors.border,
+  },
+
+  nameLabel: {
+    ...menuTypography.body,
+    color: menuColors.textSecondary,
+    marginBottom: 6,
+    fontWeight: "600",
+  },
+
+  nameInput: {
+    borderWidth: 1,
+    borderColor: menuColors.border,
+    borderRadius: menuRadius.md,
+    paddingHorizontal: menuSpacing.md,
+    paddingVertical: menuSpacing.sm,
+    color: menuColors.textPrimary,
+    fontSize: 14,
+    marginBottom: menuSpacing.md,
   },
 
   totalRow: {

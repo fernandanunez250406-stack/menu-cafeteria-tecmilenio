@@ -1,5 +1,4 @@
 import { useState } from "react";
-
 import {
   Modal,
   Pressable,
@@ -9,107 +8,91 @@ import {
   View,
 } from "react-native";
 
-import {
-  menuColors,
-  menuRadius,
-  menuSpacing,
-  menuTypography,
-} from "../../constants/menuTheme";
-
 import { useAdmin } from "../../context/AdminContext";
 
-type Props = {
+type AdminLoginModalProps = {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 };
 
 export default function AdminLoginModal({
   visible,
   onClose,
   onSuccess,
-}: Props) {
+}: AdminLoginModalProps) {
   const { login } = useAdmin();
 
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
 
-  const reset = () => {
+  const [error, setError] = useState("");
+
+  const handleLogin = () => {
+    const success = login(password);
+
+    if (!success) {
+      setError("Contraseña incorrecta");
+      return;
+    }
+
     setPassword("");
-    setError(false);
+    setError("");
+
+    onSuccess?.();
   };
 
   const handleClose = () => {
-    reset();
+    setPassword("");
+    setError("");
     onClose();
-  };
-
-  const handleSubmit = () => {
-    const success = login(password);
-
-    if (success) {
-      reset();
-      onSuccess();
-    } else {
-      setError(true);
-    }
   };
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
       transparent
+      animationType="fade"
       onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Acceso de administrador</Text>
+        <View style={styles.container}>
+          <Text style={styles.title}>Administrador</Text>
 
           <Text style={styles.subtitle}>
-            Ingresa la contraseña del personal de cafetería para administrar el
-            menú.
+            Ingresa la contraseña para continuar.
           </Text>
 
           <TextInput
-            style={[styles.input, error && styles.inputError]}
-            placeholder="Contraseña"
-            placeholderTextColor={menuColors.textSecondary}
             value={password}
             onChangeText={(text) => {
               setPassword(text);
-              setError(false);
+              setError("");
             }}
+            placeholder="Contraseña"
+            placeholderTextColor="#999"
             secureTextEntry
-            autoFocus
-            onSubmitEditing={handleSubmit}
+            autoCapitalize="none"
+            style={styles.input}
+            onSubmitEditing={handleLogin}
           />
 
-          {error && (
-            <Text style={styles.errorText}>
-              Contraseña incorrecta. Intenta de nuevo.
-            </Text>
-          )}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.submitButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.submitButtonText}>Entrar</Text>
-          </Pressable>
+          <View style={styles.buttons}>
+            <Pressable
+              style={[styles.button, styles.cancelButton]}
+              onPress={handleClose}
+            >
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.cancelButton,
-              pressed && styles.cancelButtonPressed,
-            ]}
-            onPress={handleClose}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.button, styles.loginButton]}
+              onPress={handleLogin}
+            >
+              <Text style={styles.loginText}>Entrar</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Modal>
@@ -119,87 +102,78 @@ export default function AdminLoginModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: menuColors.overlay,
-    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
     justifyContent: "center",
-    paddingHorizontal: menuSpacing.xl,
+    alignItems: "center",
+    padding: 24,
   },
 
-  card: {
+  container: {
     width: "100%",
-    maxWidth: 360,
+    maxWidth: 420,
     backgroundColor: "#FFFFFF",
-    borderRadius: menuRadius.lg,
-    padding: menuSpacing.xl,
-    gap: menuSpacing.sm,
+    borderRadius: 18,
+    padding: 24,
   },
 
   title: {
-    ...menuTypography.title,
-    fontSize: 20,
-    color: menuColors.textPrimary,
-    textAlign: "center",
-    marginBottom: menuSpacing.xs,
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#222222",
+    marginBottom: 8,
   },
 
   subtitle: {
-    ...menuTypography.body,
-    color: menuColors.textSecondary,
-    textAlign: "center",
-    marginBottom: menuSpacing.md,
-    lineHeight: 20,
+    fontSize: 14,
+    color: "#666666",
+    marginBottom: 20,
   },
 
   input: {
-    backgroundColor: menuColors.surface,
+    height: 48,
     borderWidth: 1,
-    borderColor: menuColors.border,
-    borderRadius: menuRadius.md,
-    paddingHorizontal: menuSpacing.md,
-    paddingVertical: menuSpacing.md,
-    fontSize: 15,
-    color: menuColors.textPrimary,
+    borderColor: "#DDDDDD",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    color: "#222222",
   },
 
-  inputError: {
-    borderColor: menuColors.danger,
-  },
-
-  errorText: {
-    ...menuTypography.body,
+  error: {
+    color: "#C62828",
     fontSize: 13,
-    color: menuColors.danger,
+    marginTop: 8,
   },
 
-  submitButton: {
-    backgroundColor: menuColors.accent,
-    borderRadius: menuRadius.md,
-    paddingVertical: menuSpacing.md,
+  buttons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+
+  button: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: menuSpacing.md,
-  },
-
-  buttonPressed: {
-    opacity: 0.8,
-  },
-
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 15,
   },
 
   cancelButton: {
-    alignItems: "center",
-    paddingVertical: menuSpacing.sm,
+    backgroundColor: "#EEEEEE",
   },
 
-  cancelButtonPressed: {
-    opacity: 0.6,
+  loginButton: {
+    backgroundColor: "#222222",
   },
 
-  cancelButtonText: {
-    color: menuColors.textSecondary,
+  cancelText: {
+    color: "#333333",
+    fontWeight: "600",
+  },
+
+  loginText: {
+    color: "#FFFFFF",
     fontWeight: "600",
   },
 });

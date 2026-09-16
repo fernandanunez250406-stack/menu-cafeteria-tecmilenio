@@ -11,7 +11,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { menuColors, menuRadius, menuSpacing } from "@/constants/menuTheme";
 
+import { useAdmin } from "@/context/AdminContext";
+
 export default function AppTabs() {
+  const { isAdmin } = useAdmin();
+
   return (
     <Tabs>
       <TabSlot style={styles.tabSlot} />
@@ -26,8 +30,15 @@ export default function AppTabs() {
             <TabButton>Menú</TabButton>
           </TabTrigger>
 
-          <TabTrigger name="cart" href="/cart" asChild>
-            <TabButton>Carrito</TabButton>
+          {/* El carrito solo tiene sentido para el cliente */}
+          {!isAdmin && (
+            <TabTrigger name="cart" href="/cart" asChild>
+              <TabButton>Carrito</TabButton>
+            </TabTrigger>
+          )}
+
+          <TabTrigger name="order" href="/order" asChild>
+            <TabButton>{isAdmin ? "Pedidos (admin)" : "Pedidos"}</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>

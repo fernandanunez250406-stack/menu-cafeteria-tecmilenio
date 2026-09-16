@@ -1,7 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import {
   createContext,
   ReactNode,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -9,6 +12,14 @@ import {
 import { Alert } from "react-native";
 
 import { MenuItem } from "../types/menu";
+
+import {
+  createOrder as apiCreateOrder,
+  getOrderById,
+  OrderStatus,
+} from "../services/api";
+
+const ORDERS_STORAGE_KEY = "@cafeteria/orders";
 
 export type SelectedCustomization = {
   specId: string;
@@ -30,9 +41,10 @@ export type Order = {
   id: string;
   items: CartItem[];
   total: number;
-  status: string;
+  status: OrderStatus;
   createdAt: string;
   authCode: string;
+  studentName: string;
 };
 
 type CartContextType = {
@@ -48,43 +60,67 @@ type CartContextType = {
   increaseQuantity: (cartItemId: string) => void;
   decreaseQuantity: (cartItemId: string) => void;
   clearCart: () => void;
-  createLocalOrder: () => Order | null;
+
+  /**
+   * Envía el pedido al servidor, lo guarda en el historial local
+   * (persistido en el dispositivo) y limpia el carrito.
+   */
+  createOrder: (studentName: string) => Promise<Order | null>;
+
+  /**
+   * Vuelve a consultar el estado de cada pedido guardado contra el
+   * servidor, para reflejar los cambios que haga el administrador.
+   */
+  refreshOrders: () => Promise<void>;
 
   totalItems: number;
   totalPrice: number;
 };
 
-const CartContext = createContext<CartContextType | undefined>(
-  undefined,
-);
+const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const MAX_QUANTITY = 3;
 
 const createCartItemId = () =>
   `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-const createOrderId = () =>
-  `order-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-const createCustomizationKey = (
-  customizations: SelectedCustomization[],
-) => {
+const createCustomizationKey = (customizations: SelectedCustomization[]) => {
   return customizations
-    .map(
-      (customization) =>
-        `${customization.specId}:${customization.optionId}`,
-    )
+    .map((customization) => `${customization.specId}:${customization.optionId}`)
     .sort()
     .join("|");
 };
 
-export function CartProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+
+  /* Al iniciar, recuperamos los pedidos que el cliente ya hizo antes
+     (quedan guardados en el dispositivo aunque cierre la app). */
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
+
+        if (stored) {
+          setOrders(JSON.parse(stored));
+        }
+      } catch (error) {
+        console.error("Error cargando pedidos guardados:", error);
+      }
+    })();
+  }, []);
+
+  const persistOrders = async (nextOrders: Order[]) => {
+    try {
+      await AsyncStorage.setItem(
+        ORDERS_STORAGE_KEY,
+        JSON.stringify(nextOrders),
+      );
+    } catch (error) {
+      console.error("Error guardando pedidos:", error);
+    }
+  };
 
   const addToCart = (
     product: MenuItem,
@@ -92,9 +128,7 @@ export function CartProvider({
   ) => {
     const customizations: SelectedCustomization[] = [];
 
-    const specs = Array.isArray(product.specs)
-      ? product.specs
-      : [];
+    const specs = Array.isArray(product.specs) ? product.specs : [];
 
     specs.forEach((spec) => {
       if (!spec || !Array.isArray(spec.options)) {
@@ -104,12 +138,8 @@ export function CartProvider({
       const selectedOptionId = selectedOptions[spec.id];
 
       const selectedOption =
-        spec.options.find(
-          (option) => option.id === selectedOptionId,
-        ) ??
-        spec.options.find(
-          (option) => option.isDefault,
-        ) ??
+        spec.options.find((option) => option.id === selectedOptionId) ??
+        spec.options.find((option) => option.isDefault) ??
         spec.options[0];
 
       if (!selectedOption) {
@@ -122,44 +152,34 @@ export function CartProvider({
         optionId: selectedOption.id,
         optionLabel: selectedOption.label,
         price:
-          Number.isFinite(selectedOption.price) &&
-          selectedOption.price >= 0
+          Number.isFinite(selectedOption.price) && selectedOption.price >= 0
             ? selectedOption.price
             : 0,
       });
     });
 
     const customizationPrice = customizations.reduce(
-      (total, customization) =>
-        total + customization.price,
+      (total, customization) => total + customization.price,
       0,
     );
 
-    const unitPrice =
-      product.price + customizationPrice;
+    const unitPrice = product.price + customizationPrice;
 
-    const newCustomizationKey =
-      createCustomizationKey(customizations);
+    const newCustomizationKey = createCustomizationKey(customizations);
 
     setCartItems((currentItems) => {
-      const existingItemIndex = currentItems.findIndex(
-        (item) => {
-          if (item.product.id !== product.id) {
-            return false;
-          }
+      const existingItemIndex = currentItems.findIndex((item) => {
+        if (item.product.id !== product.id) {
+          return false;
+        }
 
-          const existingKey =
-            createCustomizationKey(
-              item.customizations,
-            );
+        const existingKey = createCustomizationKey(item.customizations);
 
-          return existingKey === newCustomizationKey;
-        },
-      );
+        return existingKey === newCustomizationKey;
+      });
 
       if (existingItemIndex !== -1) {
-        const existingItem =
-          currentItems[existingItemIndex];
+        const existingItem = currentItems[existingItemIndex];
 
         if (existingItem.quantity >= MAX_QUANTITY) {
           Alert.alert(
@@ -194,9 +214,7 @@ export function CartProvider({
 
   const removeFromCart = (cartItemId: string) => {
     setCartItems((currentItems) =>
-      currentItems.filter(
-        (item) => item.id !== cartItemId,
-      ),
+      currentItems.filter((item) => item.id !== cartItemId),
     );
   };
 
@@ -243,7 +261,7 @@ export function CartProvider({
     setCartItems([]);
   };
 
-  const createLocalOrder = (): Order | null => {
+  const createOrder = async (studentName: string): Promise<Order | null> => {
     if (cartItems.length === 0) {
       Alert.alert(
         "Carrito vacío",
@@ -253,41 +271,91 @@ export function CartProvider({
       return null;
     }
 
-    const order: Order = {
-      id: createOrderId(),
-      items: cartItems,
-      total: totalPrice,
-      status: "pendiente",
-      createdAt: new Date().toISOString(),
-      authCode: Math.floor(
-        1000 + Math.random() * 9000,
-      ).toString(),
-    };
+    if (!studentName.trim()) {
+      Alert.alert(
+        "Falta tu nombre",
+        "Escribe tu nombre para poder identificar tu pedido.",
+      );
 
-    setOrders((currentOrders) => [
-      order,
-      ...currentOrders,
-    ]);
+      return null;
+    }
 
-    setCartItems([]);
+    try {
+      const backendOrder = await apiCreateOrder({
+        items: cartItems,
+        total: totalPrice,
+        studentName: studentName.trim(),
+      });
 
-    return order;
+      const order: Order = {
+        id: backendOrder.id,
+        items: cartItems,
+        total: totalPrice,
+        status: backendOrder.status,
+        createdAt: backendOrder.createdAt,
+        studentName: studentName.trim(),
+        authCode: Math.floor(1000 + Math.random() * 9000).toString(),
+      };
+
+      const nextOrders = [order, ...orders];
+
+      setOrders(nextOrders);
+      await persistOrders(nextOrders);
+
+      setCartItems([]);
+
+      return order;
+    } catch (error) {
+      console.error("Error creando el pedido:", error);
+
+      Alert.alert(
+        "No se pudo enviar tu pedido",
+        "Revisa tu conexión e intenta de nuevo.",
+      );
+
+      return null;
+    }
+  };
+
+  /* Consulta el estado más reciente de cada pedido en el servidor,
+     para enterarse si el administrador ya lo cambió. */
+  const refreshOrders = async () => {
+    if (orders.length === 0) return;
+
+    try {
+      const updated = await Promise.all(
+        orders.map(async (order) => {
+          try {
+            const backendOrder = await getOrderById(order.id);
+
+            return {
+              ...order,
+              status: backendOrder.status,
+            };
+          } catch {
+            /* Si falla un pedido en particular, dejamos el que ya
+               teníamos guardado en vez de romper toda la lista. */
+            return order;
+          }
+        }),
+      );
+
+      setOrders(updated);
+      await persistOrders(updated);
+    } catch (error) {
+      console.error("Error actualizando pedidos:", error);
+    }
   };
 
   const totalItems = useMemo(
-    () =>
-      cartItems.reduce(
-        (total, item) => total + item.quantity,
-        0,
-      ),
+    () => cartItems.reduce((total, item) => total + item.quantity, 0),
     [cartItems],
   );
 
   const totalPrice = useMemo(
     () =>
       cartItems.reduce(
-        (total, item) =>
-          total + item.unitPrice * item.quantity,
+        (total, item) => total + item.unitPrice * item.quantity,
         0,
       ),
     [cartItems],
@@ -301,25 +369,20 @@ export function CartProvider({
     increaseQuantity,
     decreaseQuantity,
     clearCart,
-    createLocalOrder,
+    createOrder,
+    refreshOrders,
     totalItems,
     totalPrice,
   };
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
   const context = useContext(CartContext);
 
   if (!context) {
-    throw new Error(
-      "useCart debe utilizarse dentro de CartProvider",
-    );
+    throw new Error("useCart debe utilizarse dentro de CartProvider");
   }
 
   return context;
