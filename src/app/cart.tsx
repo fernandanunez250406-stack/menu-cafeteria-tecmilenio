@@ -1,4 +1,5 @@
 import {
+  Alert,
   FlatList,
   Pressable,
   SafeAreaView,
@@ -24,6 +25,7 @@ export default function CartScreen() {
     removeFromCart,
     totalItems,
     totalPrice,
+    createLocalOrder,
   } = useCart();
 
   return (
@@ -157,6 +159,31 @@ export default function CartScreen() {
                 styles.orderButton,
                 pressed && styles.orderButtonPressed,
               ]}
+              onPress={() => {
+                Alert.alert(
+                  "Confirmar pedido",
+                  `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
+                  [
+                    {
+                      text: "Cancelar",
+                      style: "cancel",
+                    },
+                    {
+                      text: "Confirmar",
+                      onPress: () => {
+                        const order = createLocalOrder();
+
+                        if(order){
+                          Alert.alert(
+                            "Pedido realizado",
+                            `Tu pedido fue registrado. \nCódigo: ${order.authCode}`
+                          );
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
             >
               <Text style={styles.orderButtonText}>Realizar pedido</Text>
             </Pressable>

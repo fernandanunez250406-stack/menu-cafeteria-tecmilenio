@@ -9,7 +9,11 @@ import {
 
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { menuColors, menuRadius, menuSpacing } from "@/constants/menuTheme";
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+} from "@/constants/menuTheme";
 
 export default function AppTabs() {
   return (
@@ -29,22 +33,41 @@ export default function AppTabs() {
           <TabTrigger name="cart" href="/cart" asChild>
             <TabButton>Carrito</TabButton>
           </TabTrigger>
+
+          <TabTrigger name="order" href="/order" asChild>
+            <TabButton>Pedidos</TabButton>
+          </TabTrigger>
         </CustomTabList>
       </TabList>
     </Tabs>
   );
 }
 
-function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+function TabButton({
+  children,
+  isFocused,
+  ...props
+}: TabTriggerSlotProps) {
   return (
     <Pressable
       {...props}
-      style={({ pressed }) => [styles.tabButton, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.tabButton,
+        pressed && styles.pressed,
+      ]}
     >
       <View
-        style={[styles.tabButtonView, isFocused && styles.tabButtonViewFocused]}
+        style={[
+          styles.tabButtonView,
+          isFocused && styles.tabButtonViewFocused,
+        ]}
       >
-        <Text style={[styles.tabText, isFocused && styles.tabTextFocused]}>
+        <Text
+          style={[
+            styles.tabText,
+            isFocused && styles.tabTextFocused,
+          ]}
+        >
           {children}
         </Text>
       </View>
@@ -55,7 +78,9 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
 function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
-      <View style={styles.innerContainer}>{props.children}</View>
+      <View style={styles.innerContainer}>
+        {props.children}
+      </View>
     </View>
   );
 }
@@ -90,14 +115,16 @@ const styles = StyleSheet.create({
   },
 
   tabButton: {
+    flex: 1,
     borderRadius: menuRadius.md,
   },
 
   tabButtonView: {
     paddingVertical: menuSpacing.sm,
-    paddingHorizontal: menuSpacing.lg,
+    paddingHorizontal: menuSpacing.sm,
     borderRadius: menuRadius.md,
     backgroundColor: menuColors.surface,
+    alignItems: "center",
   },
 
   tabButtonViewFocused: {
