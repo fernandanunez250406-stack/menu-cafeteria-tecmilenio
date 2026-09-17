@@ -96,10 +96,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
-  /* Mantiene siempre la versión más reciente de "orders" disponible
-     de forma síncrona, para que funciones como refreshOrders (que
-     puede quedar "atrapada" dentro de un setInterval viejo) nunca
-     trabajen con una lista desactualizada. */
   const ordersRef = useRef<Order[]>(orders);
 
   useEffect(() => {
