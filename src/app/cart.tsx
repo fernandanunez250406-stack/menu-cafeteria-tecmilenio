@@ -187,7 +187,7 @@ export default function CartScreen() {
 
                 Alert.alert(
                   "Confirmar pedido",
-                  `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
+                  `¿Deseas realizar el pedido por $${totalPrice.toFixed(2)}?`,
                   [
                     {
                       text: "Cancelar",
@@ -207,7 +207,7 @@ export default function CartScreen() {
 
                           Alert.alert(
                             "Pedido realizado",
-                            `Tu pedido fue registrado. \nCódigo: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
+                            `Tu pedido fue registrado. \nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
                           );
                         }
                       },
