@@ -226,21 +226,6 @@ router.post(
    ÓRDENES - GENERAR NÚMERO ÚNICO
 ========================================================= */
 
-/*
- * Firestore utiliza una transacción para evitar que dos
- * clientes reciban el mismo número de pedido si hacen
- * pedidos prácticamente al mismo tiempo.
- *
- * Primer pedido:
- * 1001
- *
- * Segundo:
- * 1002
- *
- * Tercero:
- * 1003
- */
-
 const generateOrderNumber = async (): Promise<number> => {
   const counterRef = db.collection("counters").doc("orders");
 

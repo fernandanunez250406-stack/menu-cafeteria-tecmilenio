@@ -1,0 +1,46 @@
+{
+  "name": "my-mobile-app",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "dependencies": {
+    "@expo/ui": "~58.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "58.0.0-preview.3",
+    "expo-constants": "~58.0.3",
+    "expo-device": "~58.0.0",
+    "expo-file-system": "~58.0.0",
+    "expo-font": "~58.0.1",
+    "expo-glass-effect": "~58.0.0",
+    "expo-image": "~58.0.2",
+    "expo-image-picker": "~58.0.3",
+    "expo-linking": "~58.0.3",
+    "expo-router": "~58.0.4",
+    "expo-splash-screen": "~58.0.0",
+    "expo-status-bar": "~58.0.0",
+    "expo-symbols": "~58.0.1",
+    "expo-system-ui": "~58.0.1",
+    "expo-web-browser": "~58.0.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.88.0-rc.0",
+    "react-native-gesture-handler": "~3.2.1",
+    "react-native-reanimated": "4.6.0",
+    "react-native-safe-area-context": "~5.9.1",
+    "react-native-screens": "~4.27.0",
+    "react-native-web": "~0.21.0",
+    "react-native-worklets": "0.12.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "node scripts/detect-ip.js && expo start",
+    "reset-project": "node ./scripts/reset-project.js",
+    "android": "node scripts/detect-ip.js && expo start --android",
+    "ios": "node scripts/detect-ip.js && expo start --ios",
+    "web": "node scripts/detect-ip.js && expo start --web",
+    "lint": "expo lint"
+  },
+  "private": true
+}

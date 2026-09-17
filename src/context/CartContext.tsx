@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -94,6 +95,16 @@ const createCustomizationKey = (customizations: SelectedCustomization[]) => {
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+
+  /* Mantiene siempre la versión más reciente de "orders" disponible
+     de forma síncrona, para que funciones como refreshOrders (que
+     puede quedar "atrapada" dentro de un setInterval viejo) nunca
+     trabajen con una lista desactualizada. */
+  const ordersRef = useRef<Order[]>(orders);
+
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
 
   /* Al iniciar, recuperamos los pedidos que el cliente ya hizo antes
      (quedan guardados en el dispositivo aunque cierre la app). */
@@ -294,12 +305,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
         status: backendOrder.status,
         createdAt: backendOrder.createdAt,
         studentName: studentName.trim(),
-        authCode: Math.floor(1000 + Math.random() * 9000).toString(),
+        authCode: String(backendOrder.authCode ?? ""),
       };
 
-      const nextOrders = [order, ...orders];
+      /* Usamos ordersRef (siempre actualizado) como base, en vez de
+         la variable "orders" del closure, por la misma razón que en
+         refreshOrders: evita pisar pedidos si hay una actualización
+         en curso al mismo tiempo. */
+      const nextOrders = [order, ...ordersRef.current];
 
       setOrders(nextOrders);
+      ordersRef.current = nextOrders;
       await persistOrders(nextOrders);
 
       setCartItems([]);
@@ -318,19 +334,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   /* Consulta el estado más reciente de cada pedido en el servidor,
-     para enterarse si el administrador ya lo cambió. */
+     para enterarse si el administrador ya lo cambió. Lee siempre
+     ordersRef.current (no la variable "orders" del closure) para
+     no pisar pedidos nuevos con una lista vieja capturada por un
+     setInterval que quedó "congelado" desde que se montó la
+     pantalla de pedidos. */
   const refreshOrders = async () => {
-    if (orders.length === 0) return;
+    const currentOrders = ordersRef.current;
+
+    if (currentOrders.length === 0) return;
 
     try {
       const updated = await Promise.all(
-        orders.map(async (order) => {
+        currentOrders.map(async (order) => {
           try {
             const backendOrder = await getOrderById(order.id);
 
             return {
               ...order,
               status: backendOrder.status,
+              authCode: String(backendOrder.authCode ?? order.authCode),
             };
           } catch {
             /* Si falla un pedido en particular, dejamos el que ya
@@ -341,6 +364,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
 
       setOrders(updated);
+      ordersRef.current = updated;
       await persistOrders(updated);
     } catch (error) {
       console.error("Error actualizando pedidos:", error);
