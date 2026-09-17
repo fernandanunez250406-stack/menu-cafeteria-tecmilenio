@@ -15,14 +15,26 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   const login = (password: string) => {
     const success = password.trim() === ADMIN_PASSWORD;
-    if (success) setIsAdmin(true);
+
+    if (success) {
+      setIsAdmin(true);
+    }
+
     return success;
   };
 
-  const logout = () => setIsAdmin(false);
+  const logout = () => {
+    setIsAdmin(false);
+  };
 
   return (
-    <AdminContext.Provider value={{ isAdmin, login, logout }}>
+    <AdminContext.Provider
+      value={{
+        isAdmin,
+        login,
+        logout,
+      }}
+    >
       {children}
     </AdminContext.Provider>
   );
@@ -30,8 +42,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
 export function useAdmin() {
   const context = useContext(AdminContext);
+
   if (!context) {
     throw new Error("useAdmin debe usarse dentro de AdminProvider");
   }
+
   return context;
 }

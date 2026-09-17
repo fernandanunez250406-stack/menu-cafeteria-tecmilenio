@@ -3,7 +3,15 @@ import { Platform } from "react-native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
+if (!API_URL) {
+  console.warn("EXPO_PUBLIC_API_URL no está configurada.");
+}
+
 const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  if (!API_URL) {
+    throw new Error("EXPO_PUBLIC_API_URL no está configurada.");
+  }
+
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
@@ -58,14 +66,67 @@ export const toggleItemAvailability = (id: string, available: boolean) =>
    ÓRDENES
 ========================================================= */
 
+export type OrderStatus =
+  | "pendiente"
+  | "preparando"
+  | "listo"
+  | "entregado"
+  | "cancelado";
+
+export type BackendOrder = {
+  id: string;
+
+  /*
+   * Número visible del pedido.
+   *
+   * Los pedidos nuevos siempre tendrán número.
+   * Los pedidos antiguos creados antes de implementar
+   * authCode pueden no tenerlo.
+   */
+  authCode?: number;
+
+  items: any[];
+
+  total: number;
+
+  studentName: string;
+
+  status: OrderStatus;
+
+  createdAt: string;
+
+  updatedAt: string;
+};
+
 export const createOrder = async (orderData: {
   items: any[];
   total: number;
   studentName: string;
 }) =>
-  request("/orders", {
+  request<BackendOrder>("/orders", {
     method: "POST",
     body: JSON.stringify(orderData),
+  });
+
+/*
+ * Todas las órdenes.
+ * Utilizado por el administrador.
+ */
+export const getOrders = () => request<BackendOrder[]>("/orders");
+
+/*
+ * Una sola orden.
+ */
+export const getOrderById = (id: string) =>
+  request<BackendOrder>(`/orders/${encodeURIComponent(id)}`);
+
+/*
+ * Cambiar estado de una orden.
+ */
+export const updateOrderStatus = (id: string, status: OrderStatus) =>
+  request<BackendOrder>(`/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
   });
 
 /* =========================================================
@@ -73,14 +134,13 @@ export const createOrder = async (orderData: {
 ========================================================= */
 
 export async function uploadImage(imageUri: string) {
+  if (!API_URL) {
+    throw new Error("EXPO_PUBLIC_API_URL no está configurada.");
+  }
+
   const formData = new FormData();
 
   if (Platform.OS === "web") {
-    /*
-     * WEB
-     * ImagePicker devuelve una URI/blob que convertimos
-     * al File nativo del navegador.
-     */
     const response = await fetch(imageUri);
 
     if (!response.ok) {
@@ -95,11 +155,6 @@ export async function uploadImage(imageUri: string) {
 
     formData.append("image", file);
   } else {
-    /*
-     * ANDROID / iOS
-     * Se utiliza File de expo-file-system porque
-     * FormData necesita un archivo compatible con Expo.
-     */
     const file = new ExpoFile(imageUri);
 
     formData.append("image", file as any);
@@ -142,12 +197,13 @@ export const getPromotion = () => request<Promotion | null>("/promotions");
 ========================================================= */
 
 export async function uploadPromoImage(imageUri: string) {
+  if (!API_URL) {
+    throw new Error("EXPO_PUBLIC_API_URL no está configurada.");
+  }
+
   const formData = new FormData();
 
   if (Platform.OS === "web") {
-    /*
-     * WEB
-     */
     const response = await fetch(imageUri);
 
     if (!response.ok) {
@@ -162,9 +218,6 @@ export async function uploadPromoImage(imageUri: string) {
 
     formData.append("image", file);
   } else {
-    /*
-     * ANDROID / iOS
-     */
     const file = new ExpoFile(imageUri);
 
     formData.append("image", file as any);

@@ -92,6 +92,7 @@ router.post("/menu", async (req: Request, res: Response) => {
 router.put("/menu/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+
     if (!id) {
       return res.status(400).json({
         error: "Falta el ID del producto",
@@ -115,11 +116,6 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
       updatedAt: new Date().toISOString(),
     };
 
-    /*
-     * Conservamos los datos existentes si el frontend
-     * solamente manda algunos campos, por ejemplo
-     * available.
-     */
     const finalData = {
       ...existingData,
       ...updatedData,
@@ -147,6 +143,7 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
 router.delete("/menu/:id", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+
     if (!id) {
       return res.status(400).json({
         error: "Falta el ID del producto",
@@ -226,6 +223,37 @@ router.post(
 );
 
 /* =========================================================
+   ÓRDENES - GENERAR NÚMERO ÚNICO
+========================================================= */
+
+const generateOrderNumber = async (): Promise<number> => {
+  const counterRef = db.collection("counters").doc("orders");
+
+  return db.runTransaction(async (transaction) => {
+    const counterSnapshot = await transaction.get(counterRef);
+
+    const currentNumber = counterSnapshot.exists
+      ? Number(counterSnapshot.data()?.lastOrderNumber ?? 1000)
+      : 1000;
+
+    const nextNumber = currentNumber + 1;
+
+    transaction.set(
+      counterRef,
+      {
+        lastOrderNumber: nextNumber,
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        merge: true,
+      },
+    );
+
+    return nextNumber;
+  });
+};
+
+/* =========================================================
    ÓRDENES - CREAR
 ========================================================= */
 
@@ -245,7 +273,11 @@ router.post("/orders", async (req: Request, res: Response) => {
       });
     }
 
-    if (!studentName) {
+    if (
+      !studentName ||
+      typeof studentName !== "string" ||
+      !studentName.trim()
+    ) {
       return res.status(400).json({
         error: "La orden necesita el nombre del alumno",
       });
@@ -253,11 +285,18 @@ router.post("/orders", async (req: Request, res: Response) => {
 
     const now = new Date().toISOString();
 
+    /*
+     * Generamos el número único antes
+     * de guardar la orden.
+     */
+    const authCode = await generateOrderNumber();
+
     const order = {
+      authCode,
       items,
       total: Number(total),
-      studentName,
-      status: "pending",
+      studentName: studentName.trim(),
+      status: "pendiente",
       createdAt: now,
       updatedAt: now,
     };
@@ -273,6 +312,117 @@ router.post("/orders", async (req: Request, res: Response) => {
 
     return res.status(500).json({
       error: "No se pudo crear la orden",
+    });
+  }
+});
+
+/* =========================================================
+   ÓRDENES - OBTENER TODAS
+========================================================= */
+
+router.get("/orders", async (_req: Request, res: Response) => {
+  try {
+    const snapshot = await db
+      .collection("orders")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const orders = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error obteniendo órdenes:", error);
+
+    return res.status(500).json({
+      error: "No se pudieron obtener las órdenes",
+    });
+  }
+});
+
+/* =========================================================
+   ÓRDENES - OBTENER UNA
+========================================================= */
+
+router.get("/orders/:id", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+
+    const orderSnapshot = await db.collection("orders").doc(id).get();
+
+    if (!orderSnapshot.exists) {
+      return res.status(404).json({
+        error: "Orden no encontrada",
+      });
+    }
+
+    return res.status(200).json({
+      id: orderSnapshot.id,
+      ...orderSnapshot.data(),
+    });
+  } catch (error) {
+    console.error("Error obteniendo orden:", error);
+
+    return res.status(500).json({
+      error: "No se pudo obtener la orden",
+    });
+  }
+});
+
+/* =========================================================
+   ÓRDENES - CAMBIAR ESTADO
+========================================================= */
+
+const ORDER_STATUSES = [
+  "pendiente",
+  "preparando",
+  "listo",
+  "entregado",
+  "cancelado",
+] as const;
+
+router.patch("/orders/:id/status", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+
+    const { status } = req.body;
+
+    if (!status || !ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({
+        error: `Estado inválido. Usa uno de: ${ORDER_STATUSES.join(", ")}`,
+      });
+    }
+
+    const orderRef = db.collection("orders").doc(id);
+
+    const orderSnapshot = await orderRef.get();
+
+    if (!orderSnapshot.exists) {
+      return res.status(404).json({
+        error: "Orden no encontrada",
+      });
+    }
+
+    const updatedAt = new Date().toISOString();
+
+    await orderRef.update({
+      status,
+      updatedAt,
+    });
+
+    return res.status(200).json({
+      id,
+      ...orderSnapshot.data(),
+      status,
+      updatedAt,
+    });
+  } catch (error) {
+    console.error("Error actualizando estado de la orden:", error);
+
+    return res.status(500).json({
+      error: "No se pudo actualizar el estado de la orden",
     });
   }
 });
@@ -382,8 +532,8 @@ router.put("/promotions", async (req: Request, res: Response) => {
     await promotionRef.set(promotion);
 
     /*
-     * Si existía una imagen anterior y es diferente,
-     * intentamos eliminarla de Cloudinary.
+     * Eliminamos la imagen anterior
+     * de Cloudinary si era diferente.
      */
     if (previousData?.publicId && previousData.publicId !== publicId) {
       try {
@@ -421,9 +571,6 @@ router.delete("/promotions", async (_req: Request, res: Response) => {
 
     const promotionSnapshot = await promotionRef.get();
 
-    /*
-     * Si no existe una promoción, no es un error.
-     */
     if (!promotionSnapshot.exists) {
       return res.status(200).json({
         message: "No había ninguna promoción para eliminar",
@@ -432,17 +579,13 @@ router.delete("/promotions", async (_req: Request, res: Response) => {
 
     const promotionData = promotionSnapshot.data();
 
-    /*
-     * Primero eliminamos Firestore.
-     */
     await promotionRef.delete();
 
     /*
-     * Después intentamos eliminar la imagen
-     * correspondiente de Cloudinary.
+     * Eliminamos la imagen de Cloudinary.
      *
-     * Si Cloudinary falla, no hacemos fallar
-     * la eliminación de Firestore.
+     * Si Cloudinary falla, la promoción
+     * de Firestore ya queda eliminada.
      */
     if (promotionData?.publicId) {
       try {
