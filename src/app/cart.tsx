@@ -178,10 +178,7 @@ export default function CartScreen() {
               ]}
               onPress={() => {
                 if (!studentName.trim()) {
-                  Alert.alert(
-                    "Falta tu nombre",
-                    "Escribe tu nombre para identificar tu pedido.",
-                  );
+                  Alert.alert("Falta tu nombre", "Escribe tu nombre ");
                   return;
                 }
 
