@@ -2,7 +2,6 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 
 import {
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -20,6 +19,7 @@ import {
   menuRadius,
   menuSpacing,
   menuTypography,
+  WEB_MAX_WIDTH,
 } from "../../constants/menuTheme";
 
 import {
@@ -31,6 +31,7 @@ import {
 } from "../../types/menu";
 
 import { uploadImage } from "../../services/api";
+import { showAlert } from "../../utils/crossPlatformConfirm";
 
 type Props = {
   visible: boolean;
@@ -98,7 +99,7 @@ export default function ProductFormModal({
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert(
+        showAlert(
           "Permiso necesario",
           "Activa el acceso a tus fotos para poder subir una imagen del producto.",
         );
@@ -123,7 +124,7 @@ export default function ProductFormModal({
     } catch (error) {
       console.error("Error al seleccionar imagen:", error);
 
-      Alert.alert("Error", "No se pudo seleccionar la imagen.");
+      showAlert("Error", "No se pudo seleccionar la imagen.");
     }
   };
 
@@ -306,19 +307,19 @@ export default function ProductFormModal({
     }
 
     if (!draft.name.trim()) {
-      Alert.alert("Falta información", "Escribe el nombre del producto.");
+      showAlert("Falta información", "Escribe el nombre del producto.");
       return;
     }
 
     const parsedPrice = parseFloat(priceText.replace(",", ".")) || 0;
 
     if (parsedPrice < 0) {
-      Alert.alert("Precio inválido", "El precio no puede ser negativo.");
+      showAlert("Precio inválido", "El precio no puede ser negativo.");
       return;
     }
 
     if (!draft.categoryId) {
-      Alert.alert("Falta información", "Selecciona una categoría.");
+      showAlert("Falta información", "Selecciona una categoría.");
       return;
     }
 
@@ -415,7 +416,7 @@ export default function ProductFormModal({
 
       setIsSaving(false);
 
-      Alert.alert(
+      showAlert(
         "Error",
         "No se pudo guardar el producto. Verifica tu conexión e inténtalo nuevamente.",
       );
@@ -773,9 +774,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: menuColors.overlay,
     justifyContent: "flex-end",
+    alignItems: "center",
   },
 
   sheet: {
+    width: "100%",
+    maxWidth: WEB_MAX_WIDTH,
     backgroundColor: menuColors.background,
     borderTopLeftRadius: menuRadius.lg,
     borderTopRightRadius: menuRadius.lg,

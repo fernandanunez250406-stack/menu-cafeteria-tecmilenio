@@ -9,7 +9,12 @@ import {
 
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { menuColors, menuRadius, menuSpacing } from "@/constants/menuTheme";
+import {
+  menuColors,
+  menuRadius,
+  menuSpacing,
+  WEB_MAX_WIDTH,
+} from "@/constants/menuTheme";
 
 import { useAdmin } from "@/context/AdminContext";
 
@@ -18,7 +23,17 @@ export default function AppTabs() {
 
   return (
     <Tabs>
-      <TabSlot style={styles.tabSlot} />
+      {/*
+       * En web centramos todo el contenido dentro de una "tarjeta"
+       * de ancho fijo (como si fuera un celular), en vez de dejar
+       * que se estire por toda la ventana. En la app móvil esto
+       * no afecta nada porque la pantalla ya es angosta.
+       */}
+      <View style={styles.webPage}>
+        <View style={styles.webCard}>
+          <TabSlot style={styles.tabSlot} />
+        </View>
+      </View>
 
       <TabList asChild>
         <CustomTabList>
@@ -72,6 +87,22 @@ function CustomTabList(props: TabListProps) {
 }
 
 const styles = StyleSheet.create({
+  webPage: {
+    flex: 1,
+    width: "100%",
+    alignItems: "center",
+    backgroundColor: "#EDE7E0",
+    overflowY: "auto",
+  },
+
+  webCard: {
+    flex: 1,
+    width: "100%",
+    maxWidth: WEB_MAX_WIDTH,
+    backgroundColor: menuColors.background,
+    boxShadow: "0 0 40px rgba(0,0,0,0.08)",
+  },
+
   tabSlot: {
     flex: 1,
   },
@@ -84,12 +115,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
 
-    backgroundColor: menuColors.background,
+    backgroundColor: "#EDE7E0",
   },
 
   innerContainer: {
     width: "100%",
-    maxWidth: 600,
+    maxWidth: WEB_MAX_WIDTH,
 
     paddingVertical: menuSpacing.sm,
     paddingHorizontal: menuSpacing.sm,

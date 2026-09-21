@@ -2,7 +2,6 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -15,7 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
-import { menuRadius, menuSpacing, menuTypography } from "@/constants/menuTheme";
+import {
+  menuRadius,
+  menuSpacing,
+  menuTypography,
+  WEB_MAX_WIDTH,
+} from "@/constants/menuTheme";
 import { useAdmin } from "@/context/AdminContext";
 import {
   deletePromotion,
@@ -24,12 +28,23 @@ import {
   uploadPromoImage,
   type Promotion,
 } from "@/services/api";
+import { confirmAction, showAlert } from "@/utils/crossPlatformConfirm";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const IS_WEB = Platform.OS === "web";
 
-const CONTAINER_WIDTH = screenWidth - menuSpacing.lg * 2;
+/*
+ * En web el contenido ya está limitado a WEB_MAX_WIDTH (ver
+ * app-tabs.web.tsx), así que el carrusel debe calcular su tamaño
+ * en base a ese ancho "de celular" y no al ancho real de la
+ * ventana del navegador, o se vería enorme y descentrado.
+ */
+const EFFECTIVE_WIDTH = IS_WEB
+  ? Math.min(screenWidth, WEB_MAX_WIDTH)
+  : screenWidth;
+
+const CONTAINER_WIDTH = EFFECTIVE_WIDTH - menuSpacing.lg * 2;
 
 const SLIDE_WIDTH = IS_WEB
   ? Math.min(CONTAINER_WIDTH * 0.65, 520)
@@ -212,7 +227,7 @@ export default function HomeScreen() {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert(
+        showAlert(
           "Permiso necesario",
           "Necesitamos permiso para seleccionar una imagen.",
         );
@@ -247,14 +262,14 @@ export default function HomeScreen() {
       // 3. Actualizar inmediatamente la pantalla.
       setPromotion(saved);
 
-      Alert.alert(
+      showAlert(
         "Promoción actualizada",
         "La imagen de promoción se guardó correctamente.",
       );
     } catch (error) {
       console.error("Error actualizando promoción:", error);
 
-      Alert.alert(
+      showAlert(
         "Error",
         error instanceof Error
           ? error.message
@@ -278,14 +293,10 @@ export default function HomeScreen() {
 
         setPromotion(null);
 
-        if (IS_WEB) {
-          window.alert("La promoción se eliminó correctamente.");
-        } else {
-          Alert.alert(
-            "Promoción eliminada",
-            "La promoción se eliminó correctamente.",
-          );
-        }
+        showAlert(
+          "Promoción eliminada",
+          "La promoción se eliminó correctamente.",
+        );
       } catch (error) {
         console.error("Error eliminando promoción:", error);
 
@@ -294,44 +305,19 @@ export default function HomeScreen() {
             ? error.message
             : "No se pudo eliminar la promoción.";
 
-        if (IS_WEB) {
-          window.alert(`Error: ${message}`);
-        } else {
-          Alert.alert("Error", message);
-        }
+        showAlert("Error", message);
       } finally {
         setIsSavingPromotion(false);
       }
     };
 
-    if (IS_WEB) {
-      const confirmed = window.confirm(
-        "¿Seguro que quieres eliminar la promoción actual?",
-      );
-
-      if (confirmed) {
-        void executeDelete();
-      }
-
-      return;
-    }
-
-    Alert.alert(
+    confirmAction(
       "Eliminar promoción",
       "¿Seguro que quieres eliminar la promoción actual?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: () => {
-            void executeDelete();
-          },
-        },
-      ],
+      () => {
+        void executeDelete();
+      },
+      "Eliminar",
     );
   };
 

@@ -10,8 +10,6 @@ import {
   useState,
 } from "react";
 
-import { Alert } from "react-native";
-
 import { MenuItem } from "../types/menu";
 
 import {
@@ -19,6 +17,8 @@ import {
   getOrderById,
   OrderStatus,
 } from "../services/api";
+
+import { showAlert } from "../utils/crossPlatformConfirm";
 
 const ORDERS_STORAGE_KEY = "@cafeteria/orders";
 
@@ -189,10 +189,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const existingItem = currentItems[existingItemIndex];
 
         if (existingItem.quantity >= MAX_QUANTITY) {
-          Alert.alert(
-            "Límite alcanzado",
-            "Llegaste al límite de este producto.",
-          );
+          showAlert("Límite alcanzado", "Llegaste al límite de este producto.");
 
           return currentItems;
         }
@@ -233,10 +230,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
 
         if (item.quantity >= MAX_QUANTITY) {
-          Alert.alert(
-            "Límite alcanzado",
-            "Llegaste al límite de este producto.",
-          );
+          showAlert("Límite alcanzado", "Llegaste al límite de este producto.");
 
           return item;
         }
@@ -270,7 +264,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const createOrder = async (studentName: string): Promise<Order | null> => {
     if (cartItems.length === 0) {
-      Alert.alert(
+      showAlert(
         "Carrito vacío",
         "Agrega productos antes de realizar el pedido.",
       );
@@ -279,7 +273,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (!studentName.trim()) {
-      Alert.alert(
+      showAlert(
         "Falta tu nombre",
         "Escribe tu nombre para poder identificar tu pedido.",
       );
@@ -320,7 +314,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error creando el pedido:", error);
 
-      Alert.alert(
+      showAlert(
         "No se pudo enviar tu pedido",
         "Revisa tu conexión e intenta de nuevo.",
       );

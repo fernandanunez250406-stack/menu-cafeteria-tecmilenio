@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { WEB_MAX_WIDTH } from "../../constants/menuTheme";
 import { MenuItem } from "../../types/menu";
 
 type ProductDetailModalProps = {
@@ -305,9 +306,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
+    alignItems: "center",
   },
 
   modalContainer: {
+    width: "100%",
+    maxWidth: WEB_MAX_WIDTH,
     backgroundColor: "#fff",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
