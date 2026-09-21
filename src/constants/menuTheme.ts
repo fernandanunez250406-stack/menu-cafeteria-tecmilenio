@@ -35,6 +35,8 @@ export const menuRadius = {
   pill: 999,
 };
 
+export const WEB_MAX_WIDTH = 480;
+
 export const menuTypography = {
   title: {
     fontSize: 22,

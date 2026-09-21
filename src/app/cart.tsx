@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import {
-  Alert,
   FlatList,
   Pressable,
   SafeAreaView,
@@ -19,6 +18,7 @@ import {
 } from "../constants/menuTheme";
 
 import { useCart } from "../context/CartContext";
+import { confirmAction, showAlert } from "../utils/crossPlatformConfirm";
 
 export default function CartScreen() {
   const {
@@ -178,41 +178,30 @@ export default function CartScreen() {
               ]}
               onPress={() => {
                 if (!studentName.trim()) {
-                  Alert.alert(
-                    "Falta tu nombre",
-                    "Escribe tu nombre para identificar tu pedido.",
-                  );
+                  showAlert("Falta tu nombre", "Escribe tu nombre ");
                   return;
                 }
 
-                Alert.alert(
+                confirmAction(
                   "Confirmar pedido",
                   `¿Deseas realizar el pedido por $${totalPrice.toFixed(2)}?`,
-                  [
-                    {
-                      text: "Cancelar",
-                      style: "cancel",
-                    },
-                    {
-                      text: "Confirmar",
-                      onPress: async () => {
-                        setSubmitting(true);
+                  async () => {
+                    setSubmitting(true);
 
-                        const order = await createOrder(studentName);
+                    const order = await createOrder(studentName);
 
-                        setSubmitting(false);
+                    setSubmitting(false);
 
-                        if (order) {
-                          setStudentName("");
+                    if (order) {
+                      setStudentName("");
 
-                          Alert.alert(
-                            "Pedido realizado",
-                            `Tu pedido fue registrado. \nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
-                          );
-                        }
-                      },
-                    },
-                  ],
+                      showAlert(
+                        "Pedido realizado",
+                        `Tu pedido fue registrado. \nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
+                      );
+                    }
+                  },
+                  "Confirmar",
                 );
               }}
             >
