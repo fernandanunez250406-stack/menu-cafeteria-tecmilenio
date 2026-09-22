@@ -18,6 +18,7 @@ import {
 } from "../constants/menuTheme";
 
 import { useCart } from "../context/CartContext";
+
 import { confirmAction, showAlert } from "../utils/crossPlatformConfirm";
 
 export default function CartScreen() {
@@ -32,6 +33,7 @@ export default function CartScreen() {
   } = useCart();
 
   const [studentName, setStudentName] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
 
   return (
@@ -68,10 +70,6 @@ export default function CartScreen() {
               <View style={styles.cartItem}>
                 {/* INFORMACIÓN PRINCIPAL */}
                 <View style={styles.productInfo}>
-                  <View style={styles.emojiContainer}>
-                    <Text style={styles.emoji}>{item.product.emoji}</Text>
-                  </View>
-
                   <View style={styles.productText}>
                     <Text style={styles.productName}>{item.product.name}</Text>
 
@@ -99,7 +97,7 @@ export default function CartScreen() {
 
                         {customization.price > 0 && (
                           <Text style={styles.customizationPrice}>
-                            +${customization.price.toFixed(2)}
+                            + ${customization.price.toFixed(2)}
                           </Text>
                         )}
                       </View>
@@ -178,7 +176,8 @@ export default function CartScreen() {
               ]}
               onPress={() => {
                 if (!studentName.trim()) {
-                  showAlert("Falta tu nombre", "Escribe tu nombre ");
+                  showAlert("Falta tu nombre", "Escribe tu nombre");
+
                   return;
                 }
 
@@ -197,7 +196,7 @@ export default function CartScreen() {
 
                       showAlert(
                         "Pedido realizado",
-                        `Tu pedido fue registrado. \nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
+                        `Tu pedido fue registrado.\nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
                       );
                     }
                   },
@@ -217,18 +216,18 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  // =========================
-  // PANTALLA
-  // =========================
+  /* =========================
+     PANTALLA
+  ========================= */
 
   screen: {
     flex: 1,
     backgroundColor: menuColors.background,
   },
 
-  // =========================
-  // ENCABEZADO
-  // =========================
+  /* =========================
+     ENCABEZADO
+  ========================= */
 
   header: {
     paddingHorizontal: menuSpacing.lg,
@@ -247,9 +246,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // =========================
-  // CARRITO VACÍO
-  // =========================
+  /* =========================
+     CARRITO VACÍO
+  ========================= */
 
   emptyState: {
     flex: 1,
@@ -276,9 +275,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // =========================
-  // LISTA
-  // =========================
+  /* =========================
+     LISTA
+  ========================= */
 
   list: {
     paddingHorizontal: menuSpacing.md,
@@ -286,9 +285,9 @@ const styles = StyleSheet.create({
     paddingBottom: 180,
   },
 
-  // =========================
-  // PRODUCTO
-  // =========================
+  /* =========================
+     PRODUCTO
+  ========================= */
 
   cartItem: {
     backgroundColor: menuColors.surface,
@@ -302,20 +301,6 @@ const styles = StyleSheet.create({
   productInfo: {
     flexDirection: "row",
     alignItems: "center",
-  },
-
-  emojiContainer: {
-    width: 58,
-    height: 58,
-    borderRadius: menuRadius.md,
-    backgroundColor: menuColors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: menuSpacing.md,
-  },
-
-  emoji: {
-    fontSize: 34,
   },
 
   productText: {
@@ -334,9 +319,9 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  // =========================
-  // PERSONALIZACIONES
-  // =========================
+  /* =========================
+     PERSONALIZACIONES
+  ========================= */
 
   customizationsContainer: {
     marginTop: menuSpacing.md,
@@ -373,9 +358,9 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 
-  // =========================
-  // CANTIDAD
-  // =========================
+  /* =========================
+     CANTIDAD
+  ========================= */
 
   quantityRow: {
     flexDirection: "row",
@@ -424,9 +409,9 @@ const styles = StyleSheet.create({
     color: menuColors.accent,
   },
 
-  // =========================
-  // ELIMINAR
-  // =========================
+  /* =========================
+     ELIMINAR
+  ========================= */
 
   removeButton: {
     alignSelf: "flex-start",
@@ -444,9 +429,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // =========================
-  // FOOTER
-  // =========================
+  /* =========================
+     FOOTER
+  ========================= */
 
   footer: {
     padding: menuSpacing.lg,
@@ -492,9 +477,9 @@ const styles = StyleSheet.create({
     color: menuColors.accent,
   },
 
-  // =========================
-  // REALIZAR PEDIDO
-  // =========================
+  /* =========================
+     REALIZAR PEDIDO
+  ========================= */
 
   orderButton: {
     backgroundColor: menuColors.accent,
