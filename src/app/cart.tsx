@@ -15,6 +15,7 @@ import {
   menuTypography,
 } from "../constants/menuTheme";
 
+import { useAdmin } from "@/context/AdminContext";
 import { useCart } from "../context/CartContext";
 
 export default function CartScreen() {
@@ -27,6 +28,8 @@ export default function CartScreen() {
     totalPrice,
     createLocalOrder,
   } = useCart();
+
+  const { isStoreOpen } = useAdmin();
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -160,6 +163,15 @@ export default function CartScreen() {
                 pressed && styles.orderButtonPressed,
               ]}
               onPress={() => {
+                if (!isStoreOpen) {
+                  Alert.alert(
+                    "Cafetería cerrada",
+                    "La cafeteria está cerrada en este momento. No se pueden realizar pedidos.",
+                  );
+
+                  return;
+                }
+
                 Alert.alert(
                   "Confirmar pedido",
                   `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
