@@ -15,7 +15,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
-<<<<<<< HEAD
 import {
   menuRadius,
   menuSpacing,
@@ -23,10 +22,6 @@ import {
   WEB_MAX_WIDTH,
 } from "@/constants/menuTheme";
 import { useAdmin } from "@/context/AdminContext";
-=======
-import { useAdmin } from "@/context/AdminContext";
-
->>>>>>> gabriel
 import {
   deletePromotion,
   getPromotion,
@@ -175,26 +170,13 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
 export default function HomeScreen() {
   const router = useRouter();
 
-<<<<<<< HEAD
   /*
-   * IMPORTANTE:
-   * El estado de administrador ahora viene del AdminContext.
-   * Así index.tsx y order.tsx utilizan exactamente la misma sesión.
+   * El estado de administrador y de la cafetería
+   * viene del mismo AdminContext.
    */
-  const { isAdmin, logout } = useAdmin();
+  const { isAdmin, isStoreOpen, setIsStoreOpen, logout } = useAdmin();
 
   const [adminModalVisible, setAdminModalVisible] = useState(false);
-=======
-  const { 
-    isAdmin, 
-    isStoreOpen, 
-    setIsStoreOpen,
-    logout,
-  } = useAdmin();
-
-  const [adminModalVisible, setAdminModalVisible] = useState(false);
-
->>>>>>> gabriel
 
   const [promotion, setPromotion] = useState<Promotion | null>(null);
 
@@ -361,7 +343,6 @@ export default function HomeScreen() {
 
       {/* =========================
           ADMINISTRACIÓN
-
           SOLAMENTE ADMIN
       ========================= */}
 
@@ -374,17 +355,19 @@ export default function HomeScreen() {
               ? "Puedes cambiar o eliminar la imagen actual."
               : "Todavía no hay una promoción publicada."}
           </Text>
+
+          {/* =========================
+              CONTROL DE CAFETERÍA
+          ========================= */}
+
           <View style={styles.storeControl}>
             <View style={styles.storeControlInfo}>
-              <Text style={styles.storeControlTitle}>
-                Cafeteria
-              </Text>
+              <Text style={styles.storeControlTitle}>Cafetería</Text>
 
               <Text style={styles.storeControlStatus}>
                 {isStoreOpen
                   ? "Abierta · Los clientes pueden realizar pedidos."
-                  : "Cerrada · Los clientes no pueden realizar pedidos."
-                }
+                  : "Cerrada · Los clientes no pueden realizar pedidos."}
               </Text>
             </View>
 
@@ -395,6 +378,10 @@ export default function HomeScreen() {
               }}
             />
           </View>
+
+          {/* =========================
+              PROMOCIONES
+          ========================= */}
 
           <View style={styles.adminActions}>
             <Pressable
@@ -488,10 +475,6 @@ export default function HomeScreen() {
         visible={adminModalVisible}
         onClose={() => setAdminModalVisible(false)}
         onSuccess={() => {
-          /*
-           * AdminLoginModal ya ejecuta login()
-           * mediante AdminContext.
-           */
           setAdminModalVisible(false);
         }}
       />
@@ -632,6 +615,39 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  /* =========================
+     SWITCH CAFETERÍA
+  ========================= */
+
+  storeControl: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: menuRadius.md,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+  },
+
+  storeControlInfo: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  storeControlTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222222",
+  },
+
+  storeControlStatus: {
+    fontSize: 12,
+    color: "#666666",
+    marginTop: 3,
+  },
+
   adminActions: {
     flexDirection: "row",
     justifyContent: "center",
@@ -714,34 +730,4 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.75,
   },
-
-  //SWITCH ADMINISTRADOR
-  storeControl: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginTop: 16,
-  padding: 12,
-  backgroundColor: "#FFFFFF",
-  borderRadius: menuRadius.md,
-  borderWidth: 1,
-  borderColor: "#DDDDDD",
-},
-
-storeControlInfo: {
-  flex: 1,
-  paddingRight: 12,
-},
-
-storeControlTitle: {
-  fontSize: 15,
-  fontWeight: "700",
-  color: "#222222",
-},
-
-storeControlStatus: {
-  fontSize: 12,
-  color: "#666666",
-  marginTop: 3,
-},
 });

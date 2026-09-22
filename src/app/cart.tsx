@@ -17,7 +17,7 @@ import {
   menuTypography,
 } from "../constants/menuTheme";
 
-import { useAdmin } from "@/context/AdminContext";
+import { useAdmin } from "../context/AdminContext";
 import { useCart } from "../context/CartContext";
 
 import { confirmAction, showAlert } from "../utils/crossPlatformConfirm";
@@ -33,17 +33,16 @@ export default function CartScreen() {
     createOrder,
   } = useCart();
 
-<<<<<<< HEAD
+  const { isStoreOpen } = useAdmin();
+
   const [studentName, setStudentName] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
-=======
-  const { isStoreOpen } = useAdmin();
->>>>>>> gabriel
 
   return (
     <SafeAreaView style={styles.screen}>
       {/* ENCABEZADO */}
+
       <View style={styles.header}>
         <Text style={styles.title}>Mi carrito</Text>
 
@@ -53,6 +52,7 @@ export default function CartScreen() {
       </View>
 
       {/* CARRITO VACÍO */}
+
       {cartItems.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🛒</Text>
@@ -66,6 +66,7 @@ export default function CartScreen() {
       ) : (
         <>
           {/* PRODUCTOS */}
+
           <FlatList
             data={cartItems}
             keyExtractor={(item) => item.id}
@@ -74,6 +75,7 @@ export default function CartScreen() {
             renderItem={({ item }) => (
               <View style={styles.cartItem}>
                 {/* INFORMACIÓN PRINCIPAL */}
+
                 <View style={styles.productInfo}>
                   <View style={styles.productText}>
                     <Text style={styles.productName}>{item.product.name}</Text>
@@ -85,6 +87,7 @@ export default function CartScreen() {
                 </View>
 
                 {/* PERSONALIZACIONES */}
+
                 {item.customizations.length > 0 && (
                   <View style={styles.customizationsContainer}>
                     {item.customizations.map((customization) => (
@@ -111,6 +114,7 @@ export default function CartScreen() {
                 )}
 
                 {/* CANTIDAD Y SUBTOTAL */}
+
                 <View style={styles.quantityRow}>
                   <View style={styles.quantityControls}>
                     <Pressable
@@ -142,6 +146,7 @@ export default function CartScreen() {
                 </View>
 
                 {/* ELIMINAR */}
+
                 <Pressable
                   onPress={() => removeFromCart(item.id)}
                   style={({ pressed }) => [
@@ -156,6 +161,7 @@ export default function CartScreen() {
           />
 
           {/* RESUMEN */}
+
           <View style={styles.footer}>
             <Text style={styles.nameLabel}>Tu nombre</Text>
 
@@ -180,53 +186,61 @@ export default function CartScreen() {
                 (pressed || submitting) && styles.orderButtonPressed,
               ]}
               onPress={() => {
-<<<<<<< HEAD
-                if (!studentName.trim()) {
-                  showAlert("Falta tu nombre", "Escribe tu nombre");
-=======
+                /*
+                 * PRIMERO:
+                 * comprobar si la cafetería está abierta.
+                 */
                 if (!isStoreOpen) {
-                  Alert.alert(
+                  showAlert(
                     "Cafetería cerrada",
-                    "La cafeteria está cerrada en este momento. No se pueden realizar pedidos.",
+                    "La cafetería está cerrada en este momento. No se pueden realizar pedidos.",
                   );
 
                   return;
                 }
 
-                Alert.alert(
-                  "Confirmar pedido",
-                  `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
-                  [
-                    {
-                      text: "Cancelar",
-                      style: "cancel",
-                    },
-                    {
-                      text: "Confirmar",
-                      onPress: () => {
-                        const order = createLocalOrder();
->>>>>>> gabriel
+                /*
+                 * SEGUNDO:
+                 * comprobar que el cliente escribió su nombre.
+                 */
+                if (!studentName.trim()) {
+                  showAlert("Falta tu nombre", "Escribe tu nombre");
 
                   return;
                 }
 
+                /*
+                 * TERCERO:
+                 * utilizar el flujo ORIGINAL de pedidos.
+                 */
                 confirmAction(
                   "Confirmar pedido",
                   `¿Deseas realizar el pedido por $${totalPrice.toFixed(2)}?`,
                   async () => {
                     setSubmitting(true);
 
-                    const order = await createOrder(studentName);
+                    try {
+                      const order = await createOrder(studentName);
 
-                    setSubmitting(false);
+                      if (order) {
+                        setStudentName("");
 
-                    if (order) {
-                      setStudentName("");
+                        showAlert(
+                          "Pedido realizado",
+                          `Tu pedido fue registrado.\nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
+                        );
+                      }
+                    } catch (error) {
+                      console.error("Error realizando pedido:", error);
 
                       showAlert(
-                        "Pedido realizado",
-                        `Tu pedido fue registrado.\nNúmero de orden: ${order.authCode}\n\nPuedes ver su estado en la pestaña "Pedidos".`,
+                        "Error",
+                        error instanceof Error
+                          ? error.message
+                          : "No se pudo realizar el pedido.",
                       );
+                    } finally {
+                      setSubmitting(false);
                     }
                   },
                   "Confirmar",
