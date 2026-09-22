@@ -4,14 +4,17 @@ const ADMIN_PASSWORD = "admin";
 
 type AdminContextType = {
   isAdmin: boolean;
+  isStoreOpen: boolean;
   login: (password: string) => boolean;
   logout: () => void;
+  setIsStoreOpen: (isOpen: boolean) => void;
 };
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStoreOpen, setIsStoreOpen] = useState(true);
 
   const login = (password: string) => {
     const success = password.trim() === ADMIN_PASSWORD;
@@ -31,8 +34,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     <AdminContext.Provider
       value={{
         isAdmin,
+<<<<<<< HEAD
         login,
         logout,
+=======
+        isStoreOpen,
+        login,
+        logout,
+        setIsStoreOpen,
+>>>>>>> gabriel
       }}
     >
       {children}

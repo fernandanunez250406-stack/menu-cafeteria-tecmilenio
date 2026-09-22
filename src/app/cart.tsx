@@ -17,6 +17,7 @@ import {
   menuTypography,
 } from "../constants/menuTheme";
 
+import { useAdmin } from "@/context/AdminContext";
 import { useCart } from "../context/CartContext";
 
 import { confirmAction, showAlert } from "../utils/crossPlatformConfirm";
@@ -32,9 +33,13 @@ export default function CartScreen() {
     createOrder,
   } = useCart();
 
+<<<<<<< HEAD
   const [studentName, setStudentName] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+=======
+  const { isStoreOpen } = useAdmin();
+>>>>>>> gabriel
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -175,8 +180,32 @@ export default function CartScreen() {
                 (pressed || submitting) && styles.orderButtonPressed,
               ]}
               onPress={() => {
+<<<<<<< HEAD
                 if (!studentName.trim()) {
                   showAlert("Falta tu nombre", "Escribe tu nombre");
+=======
+                if (!isStoreOpen) {
+                  Alert.alert(
+                    "Cafetería cerrada",
+                    "La cafeteria está cerrada en este momento. No se pueden realizar pedidos.",
+                  );
+
+                  return;
+                }
+
+                Alert.alert(
+                  "Confirmar pedido",
+                  `¿Deseas realizar le pedido por $${totalPrice.toFixed(2)}?`,
+                  [
+                    {
+                      text: "Cancelar",
+                      style: "cancel",
+                    },
+                    {
+                      text: "Confirmar",
+                      onPress: () => {
+                        const order = createLocalOrder();
+>>>>>>> gabriel
 
                   return;
                 }
