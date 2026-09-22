@@ -76,7 +76,7 @@ export type OrderStatus =
 export type BackendOrder = {
   id: string;
 
-  /*
+  /**
    * Número visible del pedido.
    *
    * Los pedidos nuevos siempre tendrán número.
@@ -86,16 +86,25 @@ export type BackendOrder = {
   authCode?: number;
 
   items: any[];
-
   total: number;
-
   studentName: string;
-
   status: OrderStatus;
-
   createdAt: string;
-
   updatedAt: string;
+
+  /**
+   * Información de cancelación.
+   *
+   * Estos campos solamente existen cuando el pedido
+   * fue cancelado por falta de stock u otro motivo.
+   */
+  cancellationReason?: string;
+  cancelledAt?: string;
+
+  /**
+   * Mensaje adicional para mostrar al cliente.
+   */
+  notice?: string;
 };
 
 export const createOrder = async (orderData: {
@@ -108,25 +117,42 @@ export const createOrder = async (orderData: {
     body: JSON.stringify(orderData),
   });
 
-/*
+/**
  * Todas las órdenes.
+ *
  * Utilizado por el administrador.
  */
 export const getOrders = () => request<BackendOrder[]>("/orders");
 
-/*
+/**
  * Una sola orden.
  */
 export const getOrderById = (id: string) =>
   request<BackendOrder>(`/orders/${encodeURIComponent(id)}`);
 
-/*
+/**
  * Cambiar estado de una orden.
  */
 export const updateOrderStatus = (id: string, status: OrderStatus) =>
   request<BackendOrder>(`/orders/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+
+/**
+ * Eliminar un producto de una orden.
+ *
+ * El backend recalcula automáticamente
+ * el total de la orden.
+ *
+ * Si era el último producto, el backend
+ * cancela automáticamente la orden y
+ * guarda el motivo de cancelación.
+ */
+export const removeOrderItem = (orderId: string, itemId: string) =>
+  request<BackendOrder>(`/orders/${encodeURIComponent(orderId)}/items/remove`, {
+    method: "PATCH",
+    body: JSON.stringify({ itemId }),
   });
 
 /* =========================================================

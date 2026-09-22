@@ -100,7 +100,6 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
-
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -151,7 +150,6 @@ router.delete("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
-
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -285,10 +283,6 @@ router.post("/orders", async (req: Request, res: Response) => {
 
     const now = new Date().toISOString();
 
-    /*
-     * Generamos el número único antes
-     * de guardar la orden.
-     */
     const authCode = await generateOrderNumber();
 
     const order = {
@@ -386,7 +380,6 @@ const ORDER_STATUSES = [
 router.patch("/orders/:id/status", async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-
     const { status } = req.body;
 
     if (!status || !ORDER_STATUSES.includes(status)) {
@@ -396,7 +389,6 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
     }
 
     const orderRef = db.collection("orders").doc(id);
-
     const orderSnapshot = await orderRef.get();
 
     if (!orderSnapshot.exists) {
@@ -426,6 +418,131 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
     });
   }
 });
+
+/* =========================================================
+   ÓRDENES - ELIMINAR PRODUCTO DE UNA ORDEN
+========================================================= */
+
+router.patch(
+  "/orders/:id/items/remove",
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id as string;
+      const { itemId } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          error: "Falta el ID de la orden",
+        });
+      }
+
+      if (!itemId) {
+        return res.status(400).json({
+          error: "Falta el ID del producto dentro de la orden",
+        });
+      }
+
+      const orderRef = db.collection("orders").doc(id);
+      const orderSnapshot = await orderRef.get();
+
+      if (!orderSnapshot.exists) {
+        return res.status(404).json({
+          error: "Orden no encontrada",
+        });
+      }
+
+      const orderData = orderSnapshot.data() ?? {};
+
+      const currentItems = Array.isArray(orderData.items)
+        ? orderData.items
+        : [];
+
+      const itemExists = currentItems.some((item: any) => item?.id === itemId);
+
+      if (!itemExists) {
+        return res.status(404).json({
+          error: "El producto no se encuentra dentro de la orden",
+        });
+      }
+
+      const updatedItems = currentItems.filter(
+        (item: any) => item?.id !== itemId,
+      );
+
+      const updatedAt = new Date().toISOString();
+
+      /* =====================================================
+         SI ERA EL ÚLTIMO PRODUCTO
+
+         La orden NO se elimina.
+
+         Se conserva en "orders" para mantener el historial,
+         pero pasa a cancelado y se guarda el motivo.
+      ===================================================== */
+
+      if (updatedItems.length === 0) {
+        const cancellationReason =
+          "Tu pedido fue cancelado porque el producto solicitado se quedó fuera de stock.";
+
+        const cancelledAt = updatedAt;
+
+        await orderRef.update({
+          items: [],
+          total: 0,
+          status: "cancelado",
+          cancellationReason,
+          cancelledAt,
+          updatedAt,
+        });
+
+        return res.status(200).json({
+          id,
+          ...orderData,
+          items: [],
+          total: 0,
+          status: "cancelado",
+          cancellationReason,
+          cancelledAt,
+          updatedAt,
+        });
+      }
+
+      /* =====================================================
+         SI TODAVÍA QUEDAN PRODUCTOS
+
+         Recalculamos el total.
+      ===================================================== */
+
+      const newTotal = updatedItems.reduce((sum: number, item: any) => {
+        const unitPrice = Number(item?.unitPrice ?? 0);
+        const quantity = Number(item?.quantity ?? 0);
+
+        return sum + unitPrice * quantity;
+      }, 0);
+
+      await orderRef.update({
+        items: updatedItems,
+        total: Number(newTotal.toFixed(2)),
+        updatedAt,
+      });
+
+      return res.status(200).json({
+        id,
+        ...orderData,
+        items: updatedItems,
+        total: Number(newTotal.toFixed(2)),
+        status: orderData.status,
+        updatedAt,
+      });
+    } catch (error) {
+      console.error("Error eliminando producto de la orden:", error);
+
+      return res.status(500).json({
+        error: "No se pudo eliminar el producto de la orden",
+      });
+    }
+  },
+);
 
 /* =========================================================
    PROMOCIONES - OBTENER
@@ -531,10 +648,6 @@ router.put("/promotions", async (req: Request, res: Response) => {
 
     await promotionRef.set(promotion);
 
-    /*
-     * Eliminamos la imagen anterior
-     * de Cloudinary si era diferente.
-     */
     if (previousData?.publicId && previousData.publicId !== publicId) {
       try {
         await cloudinary.uploader.destroy(previousData.publicId, {
@@ -581,12 +694,6 @@ router.delete("/promotions", async (_req: Request, res: Response) => {
 
     await promotionRef.delete();
 
-    /*
-     * Eliminamos la imagen de Cloudinary.
-     *
-     * Si Cloudinary falla, la promoción
-     * de Firestore ya queda eliminada.
-     */
     if (promotionData?.publicId) {
       try {
         await cloudinary.uploader.destroy(promotionData.publicId, {
@@ -594,7 +701,7 @@ router.delete("/promotions", async (_req: Request, res: Response) => {
         });
       } catch (cloudinaryError) {
         console.error(
-          "Error eliminando imagen de Cloudinary:",
+          "Error eliminando imagen anterior de Cloudinary:",
           cloudinaryError,
         );
       }

@@ -23,12 +23,6 @@ export default function AppTabs() {
 
   return (
     <Tabs>
-      {/*
-       * En web centramos todo el contenido dentro de una "tarjeta"
-       * de ancho fijo (como si fuera un celular), en vez de dejar
-       * que se estire por toda la ventana. En la app móvil esto
-       * no afecta nada porque la pantalla ya es angosta.
-       */}
       <View style={styles.webPage}>
         <View style={styles.webCard}>
           <TabSlot style={styles.tabSlot} />
@@ -55,6 +49,13 @@ export default function AppTabs() {
           <TabTrigger name="order" href="/order" asChild>
             <TabButton>{isAdmin ? "Pedidos (admin)" : "Pedidos"}</TabButton>
           </TabTrigger>
+
+          {/* Ganancias solo para el administrador */}
+          {isAdmin && (
+            <TabTrigger name="earnings" href="/earnings" asChild>
+              <TabButton>Ganancias</TabButton>
+            </TabTrigger>
+          )}
         </CustomTabList>
       </TabList>
     </Tabs>
@@ -111,45 +112,37 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: menuSpacing.lg,
     paddingVertical: menuSpacing.sm,
-
     justifyContent: "center",
     alignItems: "center",
-
     backgroundColor: "#EDE7E0",
   },
 
   innerContainer: {
     width: "100%",
     maxWidth: WEB_MAX_WIDTH,
-
     paddingVertical: menuSpacing.sm,
     paddingHorizontal: menuSpacing.sm,
-
     borderRadius: menuRadius.lg,
-
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-
     gap: menuSpacing.sm,
-
     backgroundColor: menuColors.surface,
-
     borderWidth: 1,
     borderColor: menuColors.border,
   },
 
   tabButton: {
+    flex: 1,
     borderRadius: menuRadius.md,
   },
 
   tabButtonView: {
     paddingVertical: menuSpacing.sm,
     paddingHorizontal: menuSpacing.lg,
-
     borderRadius: menuRadius.md,
-
     backgroundColor: menuColors.surface,
+    alignItems: "center",
   },
 
   tabButtonViewFocused: {
@@ -159,7 +152,6 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: "600",
-
     color: menuColors.textSecondary,
   },
 

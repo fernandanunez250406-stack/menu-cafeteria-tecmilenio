@@ -14,7 +14,7 @@ import { MenuItem } from "../types/menu";
 
 import {
   createOrder as apiCreateOrder,
-  getOrderById,
+  getOrders,
   OrderStatus,
 } from "../services/api";
 
@@ -44,8 +44,14 @@ export type Order = {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  updatedAt?: string;
   authCode: string;
   studentName: string;
+
+  // Información adicional enviada por el servidor
+  cancellationReason?: string;
+  cancelledAt?: string;
+  notice?: string;
 };
 
 type CartContextType = {
@@ -64,13 +70,13 @@ type CartContextType = {
 
   /**
    * Envía el pedido al servidor, lo guarda en el historial local
-   * (persistido en el dispositivo) y limpia el carrito.
+   * y limpia el carrito.
    */
   createOrder: (studentName: string) => Promise<Order | null>;
 
   /**
-   * Vuelve a consultar el estado de cada pedido guardado contra el
-   * servidor, para reflejar los cambios que haga el administrador.
+   * Consulta nuevamente los pedidos en el servidor para reflejar
+   * cambios realizados por el administrador.
    */
   refreshOrders: () => Promise<void>;
 
@@ -94,6 +100,7 @@ const createCustomizationKey = (customizations: SelectedCustomization[]) => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
   const [orders, setOrders] = useState<Order[]>([]);
 
   const ordersRef = useRef<Order[]>(orders);
@@ -102,15 +109,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ordersRef.current = orders;
   }, [orders]);
 
-  /* Al iniciar, recuperamos los pedidos que el cliente ya hizo antes
-     (quedan guardados en el dispositivo aunque cierre la app). */
+  /*
+   * Recuperar pedidos guardados localmente al iniciar.
+   */
   useEffect(() => {
     (async () => {
       try {
         const stored = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
 
         if (stored) {
-          setOrders(JSON.parse(stored));
+          const parsedOrders: Order[] = JSON.parse(stored);
+
+          setOrders(parsedOrders);
+          ordersRef.current = parsedOrders;
         }
       } catch (error) {
         console.error("Error cargando pedidos guardados:", error);
@@ -294,18 +305,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
         total: totalPrice,
         status: backendOrder.status,
         createdAt: backendOrder.createdAt,
+        updatedAt: backendOrder.updatedAt,
         studentName: studentName.trim(),
         authCode: String(backendOrder.authCode ?? ""),
+        cancellationReason: backendOrder.cancellationReason,
+        cancelledAt: backendOrder.cancelledAt,
+        notice: backendOrder.notice,
       };
 
-      /* Usamos ordersRef (siempre actualizado) como base, en vez de
-         la variable "orders" del closure, por la misma razón que en
-         refreshOrders: evita pisar pedidos si hay una actualización
-         en curso al mismo tiempo. */
       const nextOrders = [order, ...ordersRef.current];
 
       setOrders(nextOrders);
       ordersRef.current = nextOrders;
+
       await persistOrders(nextOrders);
 
       setCartItems([]);
@@ -323,38 +335,91 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /* Consulta el estado más reciente de cada pedido en el servidor,
-     para enterarse si el administrador ya lo cambió. Lee siempre
-     ordersRef.current (no la variable "orders" del closure) para
-     no pisar pedidos nuevos con una lista vieja capturada por un
-     setInterval que quedó "congelado" desde que se montó la
-     pantalla de pedidos. */
+  /*
+   * =========================================================
+   * ACTUALIZAR PEDIDOS
+   *
+   * Antes se consultaba cada pedido individualmente:
+   *
+   * /orders/:id
+   *
+   * Eso provocaba errores cuando AsyncStorage tenía pedidos
+   * antiguos que ya no existían en Firestore.
+   *
+   * Ahora hacemos UNA sola petición:
+   *
+   * /orders
+   *
+   * y sincronizamos los pedidos que todavía existen.
+   * =========================================================
+   */
   const refreshOrders = async () => {
     const currentOrders = ordersRef.current;
 
-    if (currentOrders.length === 0) return;
+    if (currentOrders.length === 0) {
+      return;
+    }
 
     try {
-      const updated = await Promise.all(
-        currentOrders.map(async (order) => {
-          try {
-            const backendOrder = await getOrderById(order.id);
+      const backendOrders = await getOrders();
 
-            return {
-              ...order,
-              status: backendOrder.status,
-              authCode: String(backendOrder.authCode ?? order.authCode),
-            };
-          } catch {
-            /* Si falla un pedido en particular, dejamos el que ya
-               teníamos guardado en vez de romper toda la lista. */
-            return order;
-          }
-        }),
+      /*
+       * Mapa de pedidos actuales del servidor.
+       */
+      const backendOrdersMap = new Map(
+        backendOrders.map((order) => [order.id, order]),
       );
+
+      const updated = currentOrders.map((order) => {
+        const backendOrder = backendOrdersMap.get(order.id);
+
+        /*
+         * Si el pedido local ya no existe
+         * en Firestore, lo conservamos
+         * localmente y dejamos de intentar
+         * consultarlo individualmente.
+         */
+        if (!backendOrder) {
+          return order;
+        }
+
+        /*
+         * Si existe, sincronizamos TODOS
+         * los datos importantes.
+         */
+        return {
+          ...order,
+
+          items: Array.isArray(backendOrder.items)
+            ? backendOrder.items
+            : order.items,
+
+          total:
+            typeof backendOrder.total === "number"
+              ? backendOrder.total
+              : order.total,
+
+          status: backendOrder.status ?? order.status,
+
+          authCode: String(backendOrder.authCode ?? order.authCode),
+
+          studentName: backendOrder.studentName ?? order.studentName,
+
+          createdAt: backendOrder.createdAt ?? order.createdAt,
+
+          updatedAt: backendOrder.updatedAt ?? order.updatedAt,
+
+          cancellationReason: backendOrder.cancellationReason,
+
+          cancelledAt: backendOrder.cancelledAt,
+
+          notice: backendOrder.notice,
+        };
+      });
 
       setOrders(updated);
       ordersRef.current = updated;
+
       await persistOrders(updated);
     } catch (error) {
       console.error("Error actualizando pedidos:", error);

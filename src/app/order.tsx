@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -23,6 +26,7 @@ import {
   BackendOrder,
   getOrders,
   OrderStatus,
+  removeOrderItem,
   updateOrderStatus,
 } from "../services/api";
 
@@ -56,6 +60,52 @@ const STATUS_OPTIONS: {
 
 const statusLabel = (status: string) =>
   STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+
+/* =========================================================
+   ALERTAS COMPATIBLES CON WEB Y MÓVIL
+========================================================= */
+
+function showMessage(title: string, message: string) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+
+  Alert.alert(title, message);
+}
+
+function askConfirmation(
+  title: string,
+  message: string,
+  onConfirm: () => void,
+  confirmText = "Aceptar",
+) {
+  if (Platform.OS === "web") {
+    const confirmed = window.confirm(`${title}\n\n${message}`);
+
+    if (confirmed) {
+      onConfirm();
+    }
+
+    return;
+  }
+
+  Alert.alert(title, message, [
+    {
+      text: "Cancelar",
+      style: "cancel",
+    },
+    {
+      text: confirmText,
+      style: "destructive",
+      onPress: onConfirm,
+    },
+  ]);
+}
+
+/* =========================================================
+   VISTA PRINCIPAL
+========================================================= */
 
 export default function OrdersScreen() {
   const { isAdmin } = useAdmin();
@@ -120,52 +170,84 @@ function CustomerOrdersView() {
           showsVerticalScrollIndicator={false}
           refreshing={refreshing}
           onRefresh={handleManualRefresh}
-          renderItem={({ item }) => (
-            <View style={styles.orderCard}>
-              <View style={styles.orderHeader}>
-                <View style={styles.orderCustomerInfo}>
-                  <Text style={styles.orderTitle}>
-                    Pedido #{item.authCode ?? "—"}
-                  </Text>
+          renderItem={({ item }) => {
+            const isCancelled = item.status === "cancelado";
 
-                  <Text style={styles.customerName}>{item.studentName}</Text>
+            return (
+              <View style={styles.orderCard}>
+                <View style={styles.orderHeader}>
+                  <View style={styles.orderCustomerInfo}>
+                    <Text style={styles.orderTitle}>
+                      Pedido #{item.authCode ?? "—"}
+                    </Text>
+
+                    <Text style={styles.customerName}>{item.studentName}</Text>
+                  </View>
+
+                  <StatusPill status={item.status} />
                 </View>
 
-                <StatusPill status={item.status} />
-              </View>
+                <Text style={styles.date}>
+                  {new Date(item.createdAt).toLocaleString()}
+                </Text>
 
-              <Text style={styles.date}>
-                {new Date(item.createdAt).toLocaleString()}
-              </Text>
+                {/* AVISO DE CANCELACIÓN */}
 
-              <View style={styles.productsContainer}>
-                {item.items.map((cartItem: any) => (
-                  <View key={cartItem.id} style={styles.productRow}>
-                    <Text style={styles.productName}>
-                      {cartItem.quantity}x{" "}
-                      {cartItem.product?.name ?? "Producto"}
+                {isCancelled && item.cancellationReason && (
+                  <View style={styles.cancellationNotice}>
+                    <Text style={styles.cancellationTitle}>
+                      ⚠️ Pedido cancelado
                     </Text>
 
-                    <Text style={styles.productPrice}>
-                      $
-                      {(
-                        Number(cartItem.unitPrice ?? 0) *
-                        Number(cartItem.quantity ?? 0)
-                      ).toFixed(2)}
+                    <Text style={styles.cancellationText}>
+                      {item.cancellationReason}
                     </Text>
                   </View>
-                ))}
-              </View>
+                )}
 
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total</Text>
+                {/* AVISO GENERAL */}
 
-                <Text style={styles.total}>
-                  ${Number(item.total).toFixed(2)}
-                </Text>
+                {!isCancelled && item.notice && (
+                  <View style={styles.notice}>
+                    <Text style={styles.noticeText}>{item.notice}</Text>
+                  </View>
+                )}
+
+                <View style={styles.productsContainer}>
+                  {item.items.length === 0 ? (
+                    <Text style={styles.noProductsText}>
+                      No hay productos en este pedido.
+                    </Text>
+                  ) : (
+                    item.items.map((cartItem: any) => (
+                      <View key={cartItem.id} style={styles.productRow}>
+                        <Text style={styles.productName}>
+                          {cartItem.quantity}x{" "}
+                          {cartItem.product?.name ?? "Producto"}
+                        </Text>
+
+                        <Text style={styles.productPrice}>
+                          $
+                          {(
+                            Number(cartItem.unitPrice ?? 0) *
+                            Number(cartItem.quantity ?? 0)
+                          ).toFixed(2)}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+
+                  <Text style={styles.total}>
+                    ${Number(item.total).toFixed(2)}
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -184,6 +266,8 @@ function AdminOrdersView() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -217,6 +301,10 @@ function AdminOrdersView() {
     }
   };
 
+  /* =========================================================
+     CAMBIAR ESTADO
+  ========================================================= */
+
   const handleChangeStatus = async (
     order: BackendOrder,
     status: OrderStatus,
@@ -225,6 +313,53 @@ function AdminOrdersView() {
       return;
     }
 
+    const statusOrder: OrderStatus[] = [
+      "pendiente",
+      "preparando",
+      "listo",
+      "entregado",
+    ];
+
+    const currentIndex = statusOrder.indexOf(order.status);
+
+    const newIndex = statusOrder.indexOf(status);
+
+    const isGoingBackward =
+      currentIndex !== -1 && newIndex !== -1 && newIndex < currentIndex;
+
+    /*
+     * Si el administrador quiere regresar el estado,
+     * pedimos confirmación.
+     */
+    if (isGoingBackward) {
+      const currentLabel = statusLabel(order.status);
+
+      const newLabel = statusLabel(status);
+
+      askConfirmation(
+        "¿Regresar estado del pedido?",
+        `El pedido #${
+          order.authCode ?? "—"
+        } cambiará de "${currentLabel}" a "${newLabel}".\n\n¿Seguro que quieres hacerlo?`,
+        () => {
+          void performStatusUpdate(order, status);
+        },
+        "Sí, regresar",
+      );
+
+      return;
+    }
+
+    /*
+     * Los cambios normales se realizan directamente.
+     */
+    await performStatusUpdate(order, status);
+  };
+
+  const performStatusUpdate = async (
+    order: BackendOrder,
+    status: OrderStatus,
+  ) => {
     setUpdatingId(order.id);
 
     try {
@@ -235,10 +370,92 @@ function AdminOrdersView() {
       );
     } catch (error) {
       console.error("Error al cambiar el estado del pedido:", error);
+
+      showMessage("Error", "No se pudo cambiar el estado del pedido.");
     } finally {
       setUpdatingId(null);
     }
   };
+
+  /* =========================================================
+     ELIMINAR PRODUCTO DE UNA ORDEN
+  ========================================================= */
+
+  const handleRemoveItem = (order: BackendOrder, cartItem: any) => {
+    const itemId = cartItem?.id;
+
+    if (!itemId) {
+      showMessage(
+        "Error",
+        "Este producto no tiene un ID válido y no se puede eliminar.",
+      );
+
+      return;
+    }
+
+    const productName = cartItem.product?.name ?? "este producto";
+
+    const isLastProduct =
+      Array.isArray(order.items) && order.items.length === 1;
+
+    const message = isLastProduct
+      ? `¿Seguro que quieres quitar "${productName}" del pedido #${
+          order.authCode ?? "—"
+        }?\n\nEste es el último producto del pedido. Al quitarlo, el pedido se cancelará automáticamente por falta de stock.`
+      : `¿Seguro que quieres quitar "${productName}" del pedido #${
+          order.authCode ?? "—"
+        }?\n\nEl total del pedido se actualizará automáticamente.`;
+
+    askConfirmation(
+      isLastProduct ? "Cancelar pedido" : "¿Quitar producto?",
+      message,
+      () => {
+        void performRemoveItem(order, itemId);
+      },
+      isLastProduct ? "Sí, cancelar pedido" : "Sí, quitar",
+    );
+  };
+
+  const performRemoveItem = async (order: BackendOrder, itemId: string) => {
+    const itemKey = `${order.id}-${itemId}`;
+
+    setRemovingItemId(itemKey);
+
+    try {
+      const updated = await removeOrderItem(order.id, itemId);
+
+      setOrders((current) =>
+        current.map((item) => (item.id === order.id ? updated : item)),
+      );
+
+      /*
+       * Si era el último producto,
+       * el backend cancela automáticamente
+       * el pedido.
+       */
+      if (updated.status === "cancelado") {
+        showMessage(
+          "Pedido cancelado",
+          "El último producto fue retirado y el pedido se canceló por falta de stock.",
+        );
+      }
+    } catch (error) {
+      console.error("Error al eliminar producto del pedido:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar el producto del pedido.";
+
+      showMessage("No se pudo eliminar", message);
+    } finally {
+      setRemovingItemId(null);
+    }
+  };
+
+  /* =========================================================
+     RENDER ADMIN
+  ========================================================= */
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -246,7 +463,7 @@ function AdminOrdersView() {
         <Text style={styles.title}>Pedidos de clientes</Text>
 
         <Text style={styles.subtitle}>
-          Cambia el estado y el cliente lo verá reflejado
+          Cambia el estado y administra los productos del pedido
         </Text>
       </View>
 
@@ -290,23 +507,71 @@ function AdminOrdersView() {
                 {new Date(item.createdAt).toLocaleString()}
               </Text>
 
-              <View style={styles.productsContainer}>
-                {item.items.map((cartItem: any) => (
-                  <View key={cartItem.id} style={styles.productRow}>
-                    <Text style={styles.productName}>
-                      {cartItem.quantity}x{" "}
-                      {cartItem.product?.name ?? "Producto"}
-                    </Text>
+              {/* AVISO DE CANCELACIÓN PARA ADMIN */}
 
-                    <Text style={styles.productPrice}>
-                      $
-                      {(
-                        Number(cartItem.unitPrice ?? 0) *
-                        Number(cartItem.quantity ?? 0)
-                      ).toFixed(2)}
-                    </Text>
-                  </View>
-                ))}
+              {item.status === "cancelado" && item.cancellationReason && (
+                <View style={styles.cancellationNotice}>
+                  <Text style={styles.cancellationTitle}>
+                    ⚠️ Pedido cancelado
+                  </Text>
+
+                  <Text style={styles.cancellationText}>
+                    {item.cancellationReason}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.productsContainer}>
+                {item.items.length === 0 ? (
+                  <Text style={styles.noProductsText}>
+                    No hay productos en este pedido.
+                  </Text>
+                ) : (
+                  item.items.map((cartItem: any) => {
+                    const itemKey = `${item.id}-${cartItem.id}`;
+
+                    const isRemoving = removingItemId === itemKey;
+
+                    return (
+                      <View key={itemKey} style={styles.productRow}>
+                        <View style={styles.productInfo}>
+                          <Text style={styles.productName}>
+                            {cartItem.quantity}x{" "}
+                            {cartItem.product?.name ?? "Producto"}
+                          </Text>
+
+                          <Text style={styles.productPrice}>
+                            $
+                            {(
+                              Number(cartItem.unitPrice ?? 0) *
+                              Number(cartItem.quantity ?? 0)
+                            ).toFixed(2)}
+                          </Text>
+                        </View>
+
+                        <Pressable
+                          disabled={isRemoving}
+                          onPress={() => handleRemoveItem(item, cartItem)}
+                          style={({ pressed }) => [
+                            styles.removeButton,
+                            (pressed || isRemoving) && {
+                              opacity: 0.6,
+                            },
+                          ]}
+                        >
+                          {isRemoving ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={menuColors.accent}
+                            />
+                          ) : (
+                            <Text style={styles.removeButtonText}>Quitar</Text>
+                          )}
+                        </Pressable>
+                      </View>
+                    );
+                  })
+                )}
               </View>
 
               <View style={styles.totalRow}>
@@ -317,7 +582,9 @@ function AdminOrdersView() {
                 </Text>
               </View>
 
-              {/* SELECTOR DE ESTADO */}
+              {/* =================================================
+                  SELECTOR DE ESTADO
+              ================================================= */}
 
               <View style={styles.statusOptionsRow}>
                 {STATUS_OPTIONS.map((option) => {
@@ -325,6 +592,11 @@ function AdminOrdersView() {
 
                   const isUpdating = updatingId === item.id;
 
+                  /*
+                   * IMPORTANTE:
+                   * No bloqueamos los estados anteriores.
+                   * Todos pueden seleccionarse.
+                   */
                   return (
                     <Pressable
                       key={option.value}
@@ -360,6 +632,10 @@ function AdminOrdersView() {
   );
 }
 
+/* =========================================================
+   STATUS PILL
+========================================================= */
+
 function StatusPill({ status }: { status: string }) {
   return (
     <View style={styles.statusPill}>
@@ -367,6 +643,10 @@ function StatusPill({ status }: { status: string }) {
     </View>
   );
 }
+
+/* =========================================================
+   ESTILOS
+========================================================= */
 
 const styles = StyleSheet.create({
   screen: {
@@ -448,6 +728,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  /* AVISO DE CANCELACIÓN */
+
+  cancellationNotice: {
+    marginTop: menuSpacing.md,
+    padding: menuSpacing.md,
+    borderRadius: menuRadius.md,
+    borderWidth: 1,
+    borderColor: menuColors.border,
+    backgroundColor: menuColors.accentSoft,
+  },
+
+  cancellationTitle: {
+    color: menuColors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+
+  cancellationText: {
+    color: menuColors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  notice: {
+    marginTop: menuSpacing.md,
+    padding: menuSpacing.sm,
+    borderRadius: menuRadius.md,
+    backgroundColor: menuColors.accentSoft,
+  },
+
+  noticeText: {
+    color: menuColors.textSecondary,
+    fontSize: 13,
+  },
+
   productsContainer: {
     marginTop: menuSpacing.md,
     borderTopWidth: 1,
@@ -459,11 +775,16 @@ const styles = StyleSheet.create({
   productRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  productInfo: {
+    flex: 1,
+    marginRight: menuSpacing.sm,
   },
 
   productName: {
-    flex: 1,
     color: menuColors.textPrimary,
     fontSize: 14,
   },
@@ -471,7 +792,30 @@ const styles = StyleSheet.create({
   productPrice: {
     color: menuColors.textSecondary,
     fontSize: 14,
-    marginLeft: menuSpacing.sm,
+    marginTop: 2,
+  },
+
+  noProductsText: {
+    color: menuColors.textSecondary,
+    fontSize: 13,
+    paddingVertical: 4,
+  },
+
+  removeButton: {
+    borderWidth: 1,
+    borderColor: menuColors.border,
+    borderRadius: menuRadius.pill,
+    paddingHorizontal: menuSpacing.sm,
+    paddingVertical: 5,
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  removeButtonText: {
+    color: menuColors.accent,
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   totalRow: {

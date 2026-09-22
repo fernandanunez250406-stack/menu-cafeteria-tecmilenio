@@ -40,6 +40,13 @@ export default function AppTabs() {
           <TabTrigger name="order" href="/order" asChild>
             <TabButton>{isAdmin ? "Pedidos (admin)" : "Pedidos"}</TabButton>
           </TabTrigger>
+
+          {/* Ganancias solo para el administrador */}
+          {isAdmin && (
+            <TabTrigger name="earnings" href="/earnings" asChild>
+              <TabButton>Ganancias</TabButton>
+            </TabTrigger>
+          )}
         </CustomTabList>
       </TabList>
     </Tabs>
