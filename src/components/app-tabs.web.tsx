@@ -9,26 +9,25 @@ import {
 
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  menuColors,
-  menuRadius,
-  menuSpacing,
-  WEB_MAX_WIDTH,
-} from "@/constants/menuTheme";
+import { menuColors, menuRadius } from "@/constants/menuTheme";
 
 import { useAdmin } from "@/context/AdminContext";
+
+const DESKTOP_MAX_WIDTH = 1200;
 
 export default function AppTabs() {
   const { isAdmin } = useAdmin();
 
   return (
     <Tabs>
+      {/* CONTENIDO PRINCIPAL */}
       <View style={styles.webPage}>
         <View style={styles.webCard}>
           <TabSlot style={styles.tabSlot} />
         </View>
       </View>
 
+      {/* NAVEGACIÓN */}
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
@@ -39,7 +38,6 @@ export default function AppTabs() {
             <TabButton>Menú</TabButton>
           </TabTrigger>
 
-          {/* El carrito solo tiene sentido para el cliente */}
           {!isAdmin && (
             <TabTrigger name="cart" href="/cart" asChild>
               <TabButton>Carrito</TabButton>
@@ -47,10 +45,9 @@ export default function AppTabs() {
           )}
 
           <TabTrigger name="order" href="/order" asChild>
-            <TabButton>{isAdmin ? "Pedidos (admin)" : "Pedidos"}</TabButton>
+            <TabButton>Pedidos</TabButton>
           </TabTrigger>
 
-          {/* Ganancias solo para el administrador */}
           {isAdmin && (
             <TabTrigger name="earnings" href="/earnings" asChild>
               <TabButton>Ganancias</TabButton>
@@ -61,6 +58,10 @@ export default function AppTabs() {
     </Tabs>
   );
 }
+
+/* =========================================================
+   BOTÓN
+   ========================================================= */
 
 function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
@@ -79,6 +80,10 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   );
 }
 
+/* =========================================================
+   NAVEGACIÓN
+   ========================================================= */
+
 function CustomTabList(props: TabListProps) {
   return (
     <View {...props} style={styles.tabListContainer}>
@@ -87,79 +92,146 @@ function CustomTabList(props: TabListProps) {
   );
 }
 
+/* =========================================================
+   ESTILOS
+   ========================================================= */
+
 const styles = StyleSheet.create({
+  /*
+   * TODA LA PANTALLA
+   */
   webPage: {
     flex: 1,
     width: "100%",
+
     alignItems: "center",
+
     backgroundColor: "#EDE7E0",
+
     overflowY: "auto",
   },
 
+  /*
+   * APLICACIÓN EN PC
+   *
+   * Antes:
+   * maxWidth: WEB_MAX_WIDTH
+   *
+   * Eso hacía que pareciera una app de celular.
+   *
+   * Ahora:
+   * hasta 1200px en PC.
+   */
   webCard: {
     flex: 1,
+
     width: "100%",
-    maxWidth: WEB_MAX_WIDTH,
+    maxWidth: DESKTOP_MAX_WIDTH,
+
     backgroundColor: menuColors.background,
-    boxShadow: "0 0 40px rgba(0,0,0,0.08)",
+
+    boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
   },
 
   tabSlot: {
     flex: 1,
+    width: "100%",
   },
 
+  /*
+   * BARRA INFERIOR
+   */
   tabListContainer: {
     width: "100%",
-    paddingHorizontal: menuSpacing.lg,
-    paddingVertical: menuSpacing.sm,
-    justifyContent: "center",
+
     alignItems: "center",
+    justifyContent: "center",
+
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+
     backgroundColor: "#EDE7E0",
   },
 
+  /*
+   * CONTENEDOR DE BOTONES
+   */
   innerContainer: {
     width: "100%",
-    maxWidth: WEB_MAX_WIDTH,
-    paddingVertical: menuSpacing.sm,
-    paddingHorizontal: menuSpacing.sm,
+    maxWidth: DESKTOP_MAX_WIDTH,
+
+    minHeight: 64,
+
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+
     borderRadius: menuRadius.lg,
+
     flexDirection: "row",
+
     justifyContent: "center",
     alignItems: "center",
-    gap: menuSpacing.sm,
+
+    gap: 10,
+
     backgroundColor: menuColors.surface,
+
     borderWidth: 1,
     borderColor: menuColors.border,
+
+    boxShadow: "0 4px 18px rgba(0,0,0,0.06)",
   },
 
+  /*
+   * BOTONES
+   */
   tabButton: {
-    flex: 1,
+    minWidth: 120,
+
     borderRadius: menuRadius.md,
   },
 
   tabButtonView: {
-    paddingVertical: menuSpacing.sm,
-    paddingHorizontal: menuSpacing.lg,
+    minHeight: 46,
+
+    paddingHorizontal: 28,
+    paddingVertical: 11,
+
     borderRadius: menuRadius.md,
-    backgroundColor: menuColors.surface,
+
     alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: menuColors.surface,
   },
 
+  /*
+   * BOTÓN SELECCIONADO
+   */
   tabButtonViewFocused: {
     backgroundColor: menuColors.accentSoft,
   },
 
+  /*
+   * TEXTO
+   */
   tabText: {
-    fontSize: 14,
+    fontSize: 15,
+
     fontWeight: "600",
+
     color: menuColors.textSecondary,
+
+    textAlign: "center",
   },
 
   tabTextFocused: {
     color: menuColors.accent,
+
+    fontWeight: "700",
   },
 
   pressed: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
 });
