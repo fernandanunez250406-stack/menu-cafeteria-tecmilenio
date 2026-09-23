@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+
 import React, { useEffect, useState } from "react";
 
 import {
@@ -60,6 +61,7 @@ const createEmptyOption = (): MenuSpecOption => ({
   label: "",
   price: 0,
   isDefault: true,
+  available: true,
 });
 
 export default function ProductFormModal({
@@ -82,9 +84,7 @@ export default function ProductFormModal({
   useEffect(() => {
     if (visible) {
       setDraft(initialItem ?? emptyDraft(categories[0]?.id ?? ""));
-
       setPriceText(initialItem ? String(initialItem.price) : "");
-
       setIsSaving(false);
     }
   }, [visible, initialItem, categories]);
@@ -123,7 +123,6 @@ export default function ProductFormModal({
       }
     } catch (error) {
       console.error("Error al seleccionar imagen:", error);
-
       showAlert("Error", "No se pudo seleccionar la imagen.");
     }
   };
@@ -176,17 +175,25 @@ export default function ProductFormModal({
     }));
   };
 
+  // =========================================================
+  // OPCIONES
+  // =========================================================
+
   const addOption = (specIndex: number) => {
     setDraft((d) => {
       const updatedSpecs = [...d.specs];
-
       const spec = updatedSpecs[specIndex];
+
+      const hasAvailableOption = spec.options.some(
+        (option) => option.available !== false,
+      );
 
       const newOption: MenuSpecOption = {
         id: createId("option"),
         label: "",
         price: 0,
-        isDefault: spec.options.length === 0,
+        isDefault: !hasAvailableOption,
+        available: true,
       };
 
       updatedSpecs[specIndex] = {
@@ -209,7 +216,6 @@ export default function ProductFormModal({
   ) => {
     setDraft((d) => {
       const updatedSpecs = [...d.specs];
-
       const updatedOptions = [...updatedSpecs[specIndex].options];
 
       if (field === "label") {
@@ -238,13 +244,99 @@ export default function ProductFormModal({
     });
   };
 
+  // =========================================================
+  // DISPONIBILIDAD INDIVIDUAL DE OPCIÓN
+  // =========================================================
+
+  const toggleOptionAvailability = (specIndex: number, optionIndex: number) => {
+    setDraft((d) => {
+      const updatedSpecs = [...d.specs];
+      const spec = updatedSpecs[specIndex];
+
+      const updatedOptions = [...spec.options];
+      const currentOption = updatedOptions[optionIndex];
+
+      const currentlyAvailable = currentOption.available !== false;
+      const newAvailable = !currentlyAvailable;
+
+      // Si estamos desactivando la opción predeterminada,
+      // necesitamos encontrar otra opción disponible.
+      if (currentOption.isDefault && !newAvailable) {
+        const alternativeIndex = updatedOptions.findIndex(
+          (option, index) =>
+            index !== optionIndex && option.available !== false,
+        );
+
+        if (alternativeIndex === -1) {
+          showAlert(
+            "No se puede desactivar",
+            "Esta es la única opción disponible. Primero agrega o activa otra opción.",
+          );
+
+          return d;
+        }
+
+        updatedOptions[optionIndex] = {
+          ...currentOption,
+          available: false,
+          isDefault: false,
+        };
+
+        updatedOptions[alternativeIndex] = {
+          ...updatedOptions[alternativeIndex],
+          isDefault: true,
+        };
+      } else {
+        updatedOptions[optionIndex] = {
+          ...currentOption,
+          available: newAvailable,
+        };
+
+        // Si estamos activando una opción y no existe
+        // ninguna opción predeterminada disponible,
+        // esta se convierte automáticamente en default.
+        if (
+          newAvailable &&
+          !updatedOptions.some(
+            (option) => option.isDefault && option.available !== false,
+          )
+        ) {
+          updatedOptions[optionIndex] = {
+            ...updatedOptions[optionIndex],
+            isDefault: true,
+          };
+        }
+      }
+
+      updatedSpecs[specIndex] = {
+        ...spec,
+        options: updatedOptions,
+      };
+
+      return {
+        ...d,
+        specs: updatedSpecs,
+      };
+    });
+  };
+
+  // =========================================================
+  // OPCIÓN PREDETERMINADA
+  // =========================================================
+
   const setDefaultOption = (specIndex: number, optionIndex: number) => {
     setDraft((d) => {
       const updatedSpecs = [...d.specs];
+      const options = updatedSpecs[specIndex].options;
+
+      // Una opción agotada no puede ser predeterminada.
+      if (options[optionIndex].available === false) {
+        return d;
+      }
 
       updatedSpecs[specIndex] = {
         ...updatedSpecs[specIndex],
-        options: updatedSpecs[specIndex].options.map((option, index) => ({
+        options: options.map((option, index) => ({
           ...option,
           isDefault: index === optionIndex,
         })),
@@ -257,14 +349,16 @@ export default function ProductFormModal({
     });
   };
 
+  // =========================================================
+  // ELIMINAR OPCIÓN
+  // =========================================================
+
   const removeOption = (specIndex: number, optionIndex: number) => {
     setDraft((d) => {
       const updatedSpecs = [...d.specs];
-
       const currentOptions = updatedSpecs[specIndex].options;
 
-      // Siempre debe quedar al menos
-      // una opción.
+      // Siempre debe existir al menos una opción.
       if (currentOptions.length === 1) {
         return d;
       }
@@ -275,14 +369,24 @@ export default function ProductFormModal({
         (_, index) => index !== optionIndex,
       );
 
-      // Si eliminamos la opción
-      // predeterminada, la primera
-      // restante será la predeterminada.
+      // Si eliminamos la opción default,
+      // elegimos otra disponible.
       if (removedOption.isDefault) {
-        updatedOptions = updatedOptions.map((option, index) => ({
-          ...option,
-          isDefault: index === 0,
-        }));
+        const availableIndex = updatedOptions.findIndex(
+          (option) => option.available !== false,
+        );
+
+        if (availableIndex !== -1) {
+          updatedOptions = updatedOptions.map((option, index) => ({
+            ...option,
+            isDefault: index === availableIndex,
+          }));
+        } else {
+          updatedOptions = updatedOptions.map((option) => ({
+            ...option,
+            isDefault: false,
+          }));
+        }
       }
 
       updatedSpecs[specIndex] = {
@@ -329,29 +433,59 @@ export default function ProductFormModal({
           .filter((option) => option.label.trim())
           .map((option) => ({
             ...option,
+            id: option.id || createId("option"),
             label: option.label.trim(),
             price:
               Number.isFinite(option.price) && option.price >= 0
                 ? option.price
                 : 0,
             isDefault: Boolean(option.isDefault),
+            // Productos antiguos sin este campo
+            // se consideran disponibles.
+            available: option.available !== false,
           }));
 
         if (!spec.label.trim() || validOptions.length === 0) {
           return null;
         }
 
-        const hasDefault = validOptions.some((option) => option.isDefault);
+        const availableOptions = validOptions.filter(
+          (option) => option.available !== false,
+        );
+
+        // Si todas las opciones están agotadas,
+        // conservamos las opciones pero ninguna será default.
+        if (availableOptions.length === 0) {
+          return {
+            id: spec.id || createId("spec"),
+            label: spec.label.trim(),
+            options: validOptions.map((option) => ({
+              ...option,
+              isDefault: false,
+            })),
+          };
+        }
+
+        // Buscamos el default actual solamente entre
+        // las opciones disponibles.
+        const currentDefaultIndex = validOptions.findIndex(
+          (option) => option.isDefault && option.available !== false,
+        );
+
+        const defaultIndex =
+          currentDefaultIndex !== -1
+            ? currentDefaultIndex
+            : validOptions.findIndex((option) => option.available !== false);
 
         const normalizedOptions: MenuSpecOption[] = validOptions.map(
           (option, index) => ({
             ...option,
-            isDefault: hasDefault ? Boolean(option.isDefault) : index === 0,
+            isDefault: index === defaultIndex,
           }),
         );
 
         return {
-          id: spec.id,
+          id: spec.id || createId("spec"),
           label: spec.label.trim(),
           options: normalizedOptions,
         };
@@ -367,17 +501,6 @@ export default function ProductFormModal({
       // SUBIR IMAGEN A CLOUDINARY
       // =====================================================
 
-      /*
-       * Si photoUri NO empieza con http://
-       * o https://, significa que es una
-       * imagen local recién seleccionada.
-       *
-       * En ese caso la subimos a Cloudinary.
-       *
-       * Si ya es una URL, significa que la
-       * imagen ya está almacenada en Cloudinary
-       * y no necesitamos volver a subirla.
-       */
       if (
         finalPhotoUri &&
         !finalPhotoUri.startsWith("http://") &&
@@ -402,6 +525,7 @@ export default function ProductFormModal({
         price: parsedPrice,
         photoUri: finalPhotoUri,
         specs: cleanSpecs,
+        available: draft.available !== false,
       };
 
       // =====================================================
@@ -620,83 +744,154 @@ export default function ProductFormModal({
                     {/* OPCIONES */}
 
                     <View style={styles.optionsContainer}>
-                      {spec.options.map((option, optionIndex) => (
-                        <View key={option.id} style={styles.optionRow}>
-                          <TextInput
-                            style={[styles.input, styles.optionLabelInput]}
-                            value={option.label}
-                            onChangeText={(text) =>
-                              updateOption(
-                                specIndex,
-                                optionIndex,
-                                "label",
-                                text,
-                              )
-                            }
-                            placeholder="Ej. Leche entera"
-                            placeholderTextColor={menuColors.textSecondary}
-                            editable={!isSaving}
-                          />
+                      {spec.options.map((option, optionIndex) => {
+                        const isAvailable = option.available !== false;
 
-                          <TextInput
-                            style={[styles.input, styles.optionPriceInput]}
-                            value={String(option.price)}
-                            onChangeText={(text) =>
-                              updateOption(
-                                specIndex,
-                                optionIndex,
-                                "price",
-                                text,
-                              )
-                            }
-                            placeholder="$0"
-                            placeholderTextColor={menuColors.textSecondary}
-                            keyboardType="decimal-pad"
-                            editable={!isSaving}
-                          />
-
-                          {/* DEFAULT */}
-
-                          <Pressable
-                            onPress={() =>
-                              setDefaultOption(specIndex, optionIndex)
-                            }
-                            disabled={isSaving}
+                        return (
+                          <View
+                            key={option.id}
                             style={[
-                              styles.defaultButton,
-                              option.isDefault && styles.defaultButtonActive,
+                              styles.optionCard,
+                              !isAvailable && styles.optionCardUnavailable,
                             ]}
                           >
-                            <Text
-                              style={[
-                                styles.defaultButtonText,
-                                option.isDefault &&
-                                  styles.defaultButtonTextActive,
-                              ]}
-                            >
-                              {option.isDefault ? "✓" : "○"}
-                            </Text>
-                          </Pressable>
+                            <View style={styles.optionRow}>
+                              <TextInput
+                                style={[styles.input, styles.optionLabelInput]}
+                                value={option.label}
+                                onChangeText={(text) =>
+                                  updateOption(
+                                    specIndex,
+                                    optionIndex,
+                                    "label",
+                                    text,
+                                  )
+                                }
+                                placeholder="Ej. Leche entera"
+                                placeholderTextColor={menuColors.textSecondary}
+                                editable={!isSaving}
+                              />
 
-                          {/* ELIMINAR OPCIÓN */}
+                              <TextInput
+                                style={[styles.input, styles.optionPriceInput]}
+                                value={String(option.price)}
+                                onChangeText={(text) =>
+                                  updateOption(
+                                    specIndex,
+                                    optionIndex,
+                                    "price",
+                                    text,
+                                  )
+                                }
+                                placeholder="$0"
+                                placeholderTextColor={menuColors.textSecondary}
+                                keyboardType="decimal-pad"
+                                editable={!isSaving}
+                              />
 
-                          <Pressable
-                            onPress={() => removeOption(specIndex, optionIndex)}
-                            disabled={isSaving || spec.options.length === 1}
-                            style={[
-                              styles.removeOptionButton,
-                              spec.options.length === 1 &&
-                                styles.removeOptionButtonDisabled,
-                            ]}
-                          >
-                            <Text style={styles.removeSpecText}>🗑️</Text>
-                          </Pressable>
-                        </View>
-                      ))}
+                              {/* DEFAULT */}
+
+                              <Pressable
+                                onPress={() =>
+                                  setDefaultOption(specIndex, optionIndex)
+                                }
+                                disabled={isSaving || !isAvailable}
+                                style={[
+                                  styles.defaultButton,
+                                  option.isDefault &&
+                                    isAvailable &&
+                                    styles.defaultButtonActive,
+                                  !isAvailable && styles.disabledControl,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.defaultButtonText,
+                                    option.isDefault &&
+                                      isAvailable &&
+                                      styles.defaultButtonTextActive,
+                                  ]}
+                                >
+                                  {option.isDefault ? "✓" : "○"}
+                                </Text>
+                              </Pressable>
+
+                              {/* ELIMINAR */}
+
+                              <Pressable
+                                onPress={() =>
+                                  removeOption(specIndex, optionIndex)
+                                }
+                                disabled={isSaving || spec.options.length === 1}
+                                style={[
+                                  styles.removeOptionButton,
+                                  spec.options.length === 1 &&
+                                    styles.removeOptionButtonDisabled,
+                                ]}
+                              >
+                                <Text style={styles.removeSpecText}>🗑️</Text>
+                              </Pressable>
+                            </View>
+
+                            {/* DISPONIBILIDAD */}
+
+                            <View style={styles.optionAvailabilityRow}>
+                              <Text
+                                style={[
+                                  styles.optionAvailabilityText,
+                                  !isAvailable &&
+                                    styles.optionAvailabilityTextUnavailable,
+                                ]}
+                              >
+                                {isAvailable
+                                  ? "Disponible para clientes"
+                                  : "No disponible para clientes"}
+                              </Text>
+
+                              <Pressable
+                                onPress={() =>
+                                  toggleOptionAvailability(
+                                    specIndex,
+                                    optionIndex,
+                                  )
+                                }
+                                disabled={isSaving}
+                                style={[
+                                  styles.availabilityButton,
+                                  isAvailable
+                                    ? styles.availabilityButtonAvailable
+                                    : styles.availabilityButtonUnavailable,
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.availabilityDot,
+                                    isAvailable
+                                      ? styles.availabilityDotAvailable
+                                      : styles.availabilityDotUnavailable,
+                                  ]}
+                                />
+
+                                <Text
+                                  style={[
+                                    styles.availabilityButtonText,
+                                    isAvailable
+                                      ? styles.availabilityButtonTextAvailable
+                                      : styles.availabilityButtonTextUnavailable,
+                                  ]}
+                                >
+                                  {isAvailable ? "Disponible" : "Agotado"}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
 
                     <Text style={styles.defaultHint}>
-                      Marca una opción como predeterminada.
+                      La opción marcada con ✓ será la predeterminada. Las
+                      opciones agotadas no pueden ser predeterminadas.
                     </Text>
 
                     <Pressable
@@ -987,6 +1182,24 @@ const styles = StyleSheet.create({
     gap: menuSpacing.sm,
   },
 
+  // =======================================================
+  // OPCIÓN
+  // =======================================================
+
+  optionCard: {
+    backgroundColor: menuColors.background,
+    borderWidth: 1,
+    borderColor: menuColors.border,
+    borderRadius: menuRadius.md,
+    padding: menuSpacing.sm,
+    gap: menuSpacing.sm,
+  },
+
+  optionCardUnavailable: {
+    opacity: 0.72,
+    backgroundColor: "#F7F3F0",
+  },
+
   optionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1000,6 +1213,10 @@ const styles = StyleSheet.create({
   optionPriceInput: {
     width: 70,
   },
+
+  // =======================================================
+  // DEFAULT
+  // =======================================================
 
   defaultButton: {
     width: 40,
@@ -1027,9 +1244,88 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  disabledControl: {
+    opacity: 0.45,
+  },
+
+  // =======================================================
+  // DISPONIBILIDAD DE OPCIÓN
+  // =======================================================
+
+  optionAvailabilityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: menuSpacing.sm,
+    paddingTop: menuSpacing.xs,
+  },
+
+  optionAvailabilityText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#356B5C",
+    fontWeight: "600",
+  },
+
+  optionAvailabilityTextUnavailable: {
+    color: "#9A5140",
+  },
+
+  availabilityButton: {
+    minHeight: 34,
+    paddingHorizontal: 10,
+    borderRadius: menuRadius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  availabilityButtonAvailable: {
+    backgroundColor: "#E2F0EB",
+    borderColor: "#8FB8AA",
+  },
+
+  availabilityButtonUnavailable: {
+    backgroundColor: "#F5E3DD",
+    borderColor: "#D39A88",
+  },
+
+  availabilityDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+
+  availabilityDotAvailable: {
+    backgroundColor: "#356B5C",
+  },
+
+  availabilityDotUnavailable: {
+    backgroundColor: "#9A5140",
+  },
+
+  availabilityButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  availabilityButtonTextAvailable: {
+    color: "#356B5C",
+  },
+
+  availabilityButtonTextUnavailable: {
+    color: "#9A5140",
+  },
+
+  // =======================================================
+  // OTROS
+  // =======================================================
+
   defaultHint: {
     fontSize: 12,
     color: menuColors.textSecondary,
+    lineHeight: 17,
   },
 
   removeOptionButton: {

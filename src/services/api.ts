@@ -86,11 +86,24 @@ export type BackendOrder = {
   authCode?: number;
 
   items: any[];
+
   total: number;
+
   studentName: string;
+
   status: OrderStatus;
+
   createdAt: string;
+
   updatedAt: string;
+
+  /**
+   * Token del dispositivo que creó el pedido.
+   *
+   * Se utilizará posteriormente para enviar
+   * notificaciones push sobre cambios de estado.
+   */
+  pushToken?: string;
 
   /**
    * Información de cancelación.
@@ -99,6 +112,7 @@ export type BackendOrder = {
    * fue cancelado por falta de stock u otro motivo.
    */
   cancellationReason?: string;
+
   cancelledAt?: string;
 
   /**
@@ -109,8 +123,19 @@ export type BackendOrder = {
 
 export const createOrder = async (orderData: {
   items: any[];
+
   total: number;
+
   studentName: string;
+
+  /**
+   * Token push del dispositivo del cliente.
+   *
+   * Es opcional porque actualmente pueden existir
+   * dispositivos que todavía no tengan notificaciones
+   * configuradas.
+   */
+  pushToken?: string;
 }) =>
   request<BackendOrder>("/orders", {
     method: "POST",
@@ -211,8 +236,11 @@ export async function uploadImage(imageUri: string) {
 
 export type Promotion = {
   id: string;
+
   imageUrl: string;
+
   publicId: string | null;
+
   updatedAt?: string;
 };
 

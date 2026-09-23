@@ -7,6 +7,104 @@ import upload from "../middleware/upload.js";
 const router = Router();
 
 /* =========================================================
+   NOTIFICACIONES PUSH
+========================================================= */
+
+type NotificationStatus =
+  | "pendiente"
+  | "preparando"
+  | "listo"
+  | "entregado"
+  | "cancelado";
+
+const sendPushNotification = async (
+  pushToken: string | undefined,
+  status: NotificationStatus,
+  orderNumber: number | undefined,
+) => {
+  if (!pushToken || !pushToken.trim()) {
+    return;
+  }
+
+  const messages: Record<
+    NotificationStatus,
+    {
+      title: string;
+      body: string;
+    }
+  > = {
+    pendiente: {
+      title: "Pedido recibido",
+      body: `Tu pedido #${orderNumber ?? "—"} fue recibido correctamente.`,
+    },
+
+    preparando: {
+      title: "Tu pedido está en preparación",
+      body: `El pedido #${orderNumber ?? "—"} ya está siendo preparado.`,
+    },
+
+    listo: {
+      title: "Tu pedido está listo",
+      body: `El pedido #${orderNumber ?? "—"} está listo para recoger.`,
+    },
+
+    entregado: {
+      title: "Pedido entregado",
+      body: `El pedido #${orderNumber ?? "—"} fue marcado como entregado.`,
+    },
+
+    cancelado: {
+      title: "Pedido cancelado",
+      body: `El pedido #${orderNumber ?? "—"} fue cancelado.`,
+    },
+  };
+
+  const notification = messages[status];
+
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: pushToken.trim(),
+        sound: "default",
+        title: notification.title,
+        body: notification.body,
+        data: {
+          type: "order-status",
+          status,
+          orderNumber: orderNumber ?? null,
+        },
+        channelId: "orders",
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      console.error("Error enviando notificación push:", data);
+
+      return;
+    }
+
+    console.log(
+      `Notificación enviada para el pedido #${orderNumber ?? "—"}:`,
+      status,
+    );
+  } catch (error) {
+    /*
+     * Una falla de notificación NO debe impedir
+     * que el estado del pedido se actualice.
+     */
+    console.error("Error enviando notificación push:", error);
+  }
+};
+
+/* =========================================================
    PRODUCTOS - OBTENER MENÚ
 ========================================================= */
 
@@ -100,6 +198,7 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
+
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -150,6 +249,7 @@ router.delete("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
+
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -257,7 +357,7 @@ const generateOrderNumber = async (): Promise<number> => {
 
 router.post("/orders", async (req: Request, res: Response) => {
   try {
-    const { items, total, studentName } = req.body;
+    const { items, total, studentName, pushToken } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -290,12 +390,32 @@ router.post("/orders", async (req: Request, res: Response) => {
       items,
       total: Number(total),
       studentName: studentName.trim(),
-      status: "pendiente",
+      status: "pendiente" as const,
       createdAt: now,
       updatedAt: now,
+
+      /*
+       * Solamente guardamos el token si
+       * realmente recibimos uno válido.
+       */
+      ...(typeof pushToken === "string" && pushToken.trim()
+        ? {
+            pushToken: pushToken.trim(),
+          }
+        : {}),
     };
 
     const docRef = await db.collection("orders").add(order);
+
+    /*
+     * Notificamos que el pedido fue recibido.
+     *
+     * Si todavía no hay token, simplemente
+     * no se envía ninguna notificación.
+     */
+    if (typeof pushToken === "string" && pushToken.trim()) {
+      void sendPushNotification(pushToken, "pendiente", authCode);
+    }
 
     return res.status(201).json({
       id: docRef.id,
@@ -366,7 +486,7 @@ router.get("/orders/:id", async (req: Request, res: Response) => {
 });
 
 /* =========================================================
-   ÓRDENES - CAMBIAR ESTADO
+   ÓRDENES - ESTADOS
 ========================================================= */
 
 const ORDER_STATUSES = [
@@ -376,6 +496,10 @@ const ORDER_STATUSES = [
   "entregado",
   "cancelado",
 ] as const;
+
+/* =========================================================
+   ÓRDENES - CAMBIAR ESTADO
+========================================================= */
 
 router.patch("/orders/:id/status", async (req: Request, res: Response) => {
   try {
@@ -389,6 +513,7 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
     }
 
     const orderRef = db.collection("orders").doc(id);
+
     const orderSnapshot = await orderRef.get();
 
     if (!orderSnapshot.exists) {
@@ -397,16 +522,39 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
       });
     }
 
+    const orderData = orderSnapshot.data() ?? {};
+
+    const previousStatus = orderData.status;
+
     const updatedAt = new Date().toISOString();
 
+    /*
+     * Actualizamos el pedido.
+     */
     await orderRef.update({
       status,
       updatedAt,
     });
 
+    /*
+     * Solamente enviamos una notificación
+     * si realmente cambió el estado.
+     */
+    if (previousStatus !== status) {
+      const pushToken =
+        typeof orderData.pushToken === "string"
+          ? orderData.pushToken
+          : undefined;
+
+      const authCode =
+        typeof orderData.authCode === "number" ? orderData.authCode : undefined;
+
+      void sendPushNotification(pushToken, status, authCode);
+    }
+
     return res.status(200).json({
       id,
-      ...orderSnapshot.data(),
+      ...orderData,
       status,
       updatedAt,
     });
@@ -443,6 +591,7 @@ router.patch(
       }
 
       const orderRef = db.collection("orders").doc(id);
+
       const orderSnapshot = await orderRef.get();
 
       if (!orderSnapshot.exists) {
@@ -495,6 +644,22 @@ router.patch(
           updatedAt,
         });
 
+        /*
+         * Avisamos al cliente que su pedido
+         * fue cancelado.
+         */
+        const pushToken =
+          typeof orderData.pushToken === "string"
+            ? orderData.pushToken
+            : undefined;
+
+        const authCode =
+          typeof orderData.authCode === "number"
+            ? orderData.authCode
+            : undefined;
+
+        void sendPushNotification(pushToken, "cancelado", authCode);
+
         return res.status(200).json({
           id,
           ...orderData,
@@ -515,6 +680,7 @@ router.patch(
 
       const newTotal = updatedItems.reduce((sum: number, item: any) => {
         const unitPrice = Number(item?.unitPrice ?? 0);
+
         const quantity = Number(item?.quantity ?? 0);
 
         return sum + unitPrice * quantity;

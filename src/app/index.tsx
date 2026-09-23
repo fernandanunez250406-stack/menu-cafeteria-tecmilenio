@@ -7,6 +7,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -36,24 +37,22 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const IS_WEB = Platform.OS === "web";
 
 /*
- * En web el contenido ya está limitado a WEB_MAX_WIDTH (ver
- * app-tabs.web.tsx), así que el carrusel debe calcular su tamaño
- * en base a ese ancho "de celular" y no al ancho real de la
- * ventana del navegador, o se vería enorme y descentrado.
+ * En web usamos WEB_MAX_WIDTH para que la portada
+ * no se haga demasiado grande en monitores.
  */
 const EFFECTIVE_WIDTH = IS_WEB
   ? Math.min(screenWidth, WEB_MAX_WIDTH)
   : screenWidth;
 
-const CONTAINER_WIDTH = EFFECTIVE_WIDTH - menuSpacing.lg * 2;
+const CONTAINER_WIDTH = Math.max(EFFECTIVE_WIDTH - menuSpacing.lg * 2, 280);
 
 const SLIDE_WIDTH = IS_WEB
   ? Math.min(CONTAINER_WIDTH * 0.65, 520)
-  : CONTAINER_WIDTH * 0.88;
+  : Math.min(CONTAINER_WIDTH * 0.88, 420);
 
 const SLIDE_HEIGHT = IS_WEB
-  ? Math.min(screenHeight * 0.42, 360)
-  : SLIDE_WIDTH * 1.45;
+  ? Math.min(Math.max(screenHeight * 0.42, 260), 360)
+  : Math.min(SLIDE_WIDTH * 1.45, 560);
 
 const SLIDE_INTERVAL_MS = 4000;
 
@@ -170,40 +169,27 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
 export default function HomeScreen() {
   const router = useRouter();
 
-  /*
-   * El estado de administrador y de la cafetería
-   * viene del mismo AdminContext.
-   */
   const { isAdmin, isStoreOpen, setIsStoreOpen, logout } = useAdmin();
 
   const [adminModalVisible, setAdminModalVisible] = useState(false);
-
   const [promotion, setPromotion] = useState<Promotion | null>(null);
-
-  const [isLoadingPromotion, setIsLoadingPromotion] = useState(true);
-
   const [isSavingPromotion, setIsSavingPromotion] = useState(false);
 
-  // Doble toque para abrir el acceso de administrador en móvil.
+  // Doble toque sobre "Mas Café" para abrir administración.
   const lastPressTimeRef = useRef(0);
 
   useEffect(() => {
+    const loadPromotion = async () => {
+      try {
+        const data = await getPromotion();
+        setPromotion(data);
+      } catch (error) {
+        console.error("Error cargando promoción:", error);
+      }
+    };
+
     void loadPromotion();
   }, []);
-
-  const loadPromotion = async () => {
-    try {
-      setIsLoadingPromotion(true);
-
-      const data = await getPromotion();
-
-      setPromotion(data);
-    } catch (error) {
-      console.error("Error cargando promoción:", error);
-    } finally {
-      setIsLoadingPromotion(false);
-    }
-  };
 
   const handleAdminSecretTrigger = () => {
     const now = Date.now();
@@ -250,16 +236,13 @@ export default function HomeScreen() {
 
       setIsSavingPromotion(true);
 
-      // 1. Subir imagen a Cloudinary.
       const uploaded = await uploadPromoImage(imageUri);
 
-      // 2. Guardar URL + publicId en Firestore.
       const saved = await savePromotion({
         imageUrl: uploaded.url,
         publicId: uploaded.publicId,
       });
 
-      // 3. Actualizar inmediatamente la pantalla.
       setPromotion(saved);
 
       showAlert(
@@ -323,161 +306,193 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* =========================
-          ENCABEZADO
-      ========================= */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* =========================
+            ENCABEZADO
+        ========================= */}
 
-      <View style={styles.header}>
-        <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
+        <View style={styles.header}>
+          <Text style={styles.welcomeLabel}>BIENVENIDOS A</Text>
 
-        <Pressable onPress={handleAdminSecretTrigger} hitSlop={15}>
-          <Text style={styles.brandTitle}>Mas Café</Text>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={handleAdminSecretTrigger}
+            hitSlop={15}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Más Café"
+            accessibilityHint="Toca dos veces para abrir el acceso de administrador"
+          >
+            <Text style={styles.brandTitle}>Más Café</Text>
+          </Pressable>
 
-      {/* =========================
-          CARRUSEL
-      ========================= */}
+          <View style={styles.scheduleContainer}>
+            <Text style={styles.scheduleTitle}>Horario de atención</Text>
 
-      <PromoCarousel promotion={promotion} />
+            <Text style={styles.scheduleText}>
+              Lunes a viernes · 8:00 AM – 8:00 PM
+            </Text>
+          </View>
+        </View>
 
-      {/* =========================
-          ADMINISTRACIÓN
-          SOLAMENTE ADMIN
-      ========================= */}
+        {/* =========================
+            PROMOCIÓN
+        ========================= */}
 
-      {isAdmin && (
-        <View style={styles.adminPanel}>
-          <Text style={styles.adminTitle}>Administración de promoción</Text>
+        <PromoCarousel promotion={promotion} />
 
-          <Text style={styles.adminSubtitle}>
-            {promotion
-              ? "Puedes cambiar o eliminar la imagen actual."
-              : "Todavía no hay una promoción publicada."}
-          </Text>
+        {/* =========================
+            ADMINISTRACIÓN
+        ========================= */}
 
-          {/* =========================
-              CONTROL DE CAFETERÍA
-          ========================= */}
+        {isAdmin && (
+          <View style={styles.adminPanel}>
+            <Text style={styles.adminTitle}>Administración de promoción</Text>
 
-          <View style={styles.storeControl}>
-            <View style={styles.storeControlInfo}>
-              <Text style={styles.storeControlTitle}>Cafetería</Text>
+            <Text style={styles.adminSubtitle}>
+              {promotion
+                ? "Puedes cambiar o eliminar la imagen actual."
+                : "Todavía no hay una promoción publicada."}
+            </Text>
 
-              <Text style={styles.storeControlStatus}>
-                {isStoreOpen
-                  ? "Abierta · Los clientes pueden realizar pedidos."
-                  : "Cerrada · Los clientes no pueden realizar pedidos."}
-              </Text>
+            {/* CONTROL DE CAFETERÍA */}
+
+            <View style={styles.storeControl}>
+              <View style={styles.storeControlInfo}>
+                <Text style={styles.storeControlTitle}>Cafetería</Text>
+
+                <Text style={styles.storeControlStatus}>
+                  {isStoreOpen
+                    ? "Abierta · Los clientes pueden realizar pedidos."
+                    : "Cerrada · Los clientes no pueden realizar pedidos."}
+                </Text>
+              </View>
+
+              <Switch
+                value={isStoreOpen}
+                onValueChange={(value) => {
+                  setIsStoreOpen(value);
+                }}
+                accessibilityRole="switch"
+                accessibilityLabel="Estado de la cafetería"
+                accessibilityHint="Activa o desactiva la recepción de pedidos"
+              />
             </View>
 
-            <Switch
-              value={isStoreOpen}
-              onValueChange={(value) => {
-                setIsStoreOpen(value);
-              }}
-            />
-          </View>
+            {/* BOTONES DE PROMOCIÓN */}
 
-          {/* =========================
-              PROMOCIONES
-          ========================= */}
-
-          <View style={styles.adminActions}>
-            <Pressable
-              disabled={isSavingPromotion}
-              onPress={handleSelectPromotionImage}
-              style={({ pressed }) => [
-                styles.adminActionButton,
-                pressed && !isSavingPromotion && styles.buttonPressed,
-                isSavingPromotion && styles.disabledButton,
-              ]}
-            >
-              <Text style={styles.adminActionText}>
-                {isSavingPromotion
-                  ? "Guardando..."
-                  : promotion
-                    ? "Cambiar imagen"
-                    : "Subir promoción"}
-              </Text>
-            </Pressable>
-
-            {promotion && (
+            <View style={styles.adminActions}>
               <Pressable
                 disabled={isSavingPromotion}
-                onPress={handleDeletePromotion}
+                onPress={handleSelectPromotionImage}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  promotion ? "Cambiar imagen de promoción" : "Subir promoción"
+                }
                 style={({ pressed }) => [
-                  styles.deleteButton,
+                  styles.adminActionButton,
                   pressed && !isSavingPromotion && styles.buttonPressed,
                   isSavingPromotion && styles.disabledButton,
                 ]}
               >
-                <Text style={styles.deleteButtonText}>Eliminar</Text>
+                <Text style={styles.adminActionText}>
+                  {isSavingPromotion
+                    ? "Guardando..."
+                    : promotion
+                      ? "Cambiar imagen"
+                      : "Subir promoción"}
+                </Text>
               </Pressable>
-            )}
+
+              {promotion && (
+                <Pressable
+                  disabled={isSavingPromotion}
+                  onPress={handleDeletePromotion}
+                  accessibilityRole="button"
+                  accessibilityLabel="Eliminar promoción"
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    pressed && !isSavingPromotion && styles.buttonPressed,
+                    isSavingPromotion && styles.disabledButton,
+                  ]}
+                >
+                  <Text style={styles.deleteButtonText}>Eliminar</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* =========================
-          BOTÓN MENÚ
-      ========================= */}
+        {/* =========================
+            BOTÓN MENÚ
+        ========================= */}
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.menuButton,
-          pressed && styles.menuButtonPressed,
-        ]}
-        onPress={() => {
-          router.push("/menu");
-        }}
-      >
-        <Text style={styles.menuButtonText}>Ir al Menú</Text>
-      </Pressable>
-
-      {/* =========================
-          ACCESO ADMINISTRADOR WEB
-      ========================= */}
-
-      {!isAdmin && IS_WEB && (
         <Pressable
-          onPress={() => setAdminModalVisible(true)}
           style={({ pressed }) => [
-            styles.webAdminButton,
-            pressed && styles.webAdminButtonPressed,
+            styles.menuButton,
+            pressed && styles.menuButtonPressed,
           ]}
+          onPress={() => {
+            router.push("/menu");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Ir al menú"
         >
-          <Text style={styles.webAdminText}>Administrador</Text>
+          <Text style={styles.menuButtonText}>Ir al Menú</Text>
         </Pressable>
-      )}
 
-      {/* =========================
-          CERRAR ADMIN
-      ========================= */}
+        {/* =========================
+            ADMINISTRADOR WEB
+        ========================= */}
 
-      {isAdmin && (
-        <Pressable
-          onPress={logout}
-          style={({ pressed }) => [
-            styles.logoutButton,
-            pressed && styles.webAdminButtonPressed,
-          ]}
-        >
-          <Text style={styles.webAdminText}>Cerrar administración</Text>
-        </Pressable>
-      )}
+        {!isAdmin && IS_WEB && (
+          <Pressable
+            onPress={() => setAdminModalVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Administrador"
+            style={({ pressed }) => [
+              styles.webAdminButton,
+              pressed && styles.webAdminButtonPressed,
+            ]}
+          >
+            <Text style={styles.webAdminText}>Administrador</Text>
+          </Pressable>
+        )}
 
-      {/* =========================
-          LOGIN ADMINISTRADOR
-      ========================= */}
+        {/* =========================
+            CERRAR ADMINISTRACIÓN
+        ========================= */}
 
-      <AdminLoginModal
-        visible={adminModalVisible}
-        onClose={() => setAdminModalVisible(false)}
-        onSuccess={() => {
-          setAdminModalVisible(false);
-        }}
-      />
+        {isAdmin && (
+          <Pressable
+            onPress={logout}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar administración"
+            style={({ pressed }) => [
+              styles.logoutButton,
+              pressed && styles.webAdminButtonPressed,
+            ]}
+          >
+            <Text style={styles.webAdminText}>Cerrar administración</Text>
+          </Pressable>
+        )}
+
+        {/* =========================
+            LOGIN ADMINISTRADOR
+        ========================= */}
+
+        <AdminLoginModal
+          visible={adminModalVisible}
+          onClose={() => setAdminModalVisible(false)}
+          onSuccess={() => {
+            setAdminModalVisible(false);
+          }}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -486,15 +501,23 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: menuSpacing.lg,
     paddingTop: IS_WEB ? menuSpacing.md : menuSpacing.xl,
-    paddingBottom: IS_WEB ? menuSpacing.md : menuSpacing.xl,
+    paddingBottom: 24,
   },
 
   header: {
     alignItems: "center",
     gap: 4,
-    marginBottom: IS_WEB ? 18 : 32,
+    marginBottom: IS_WEB ? 18 : 28,
   },
 
   welcomeLabel: {
@@ -503,6 +526,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
   },
 
   brandTitle: {
@@ -510,6 +534,25 @@ const styles = StyleSheet.create({
     fontSize: 31,
     fontWeight: "800",
     color: "#222222",
+    textAlign: "center",
+  },
+
+  scheduleContainer: {
+    alignItems: "center",
+    marginTop: 8,
+  },
+
+  scheduleTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#555555",
+    textAlign: "center",
+  },
+
+  scheduleText: {
+    fontSize: 12,
+    color: "#777777",
+    marginTop: 2,
     textAlign: "center",
   },
 
@@ -615,10 +658,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  /* =========================
-     SWITCH CAFETERÍA
-  ========================= */
-
   storeControl: {
     flexDirection: "row",
     alignItems: "center",
@@ -652,6 +691,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 10,
     marginTop: 12,
   },
@@ -689,11 +729,14 @@ const styles = StyleSheet.create({
   },
 
   menuButton: {
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
     backgroundColor: "#7A4B2A",
     paddingVertical: menuSpacing.md + 4,
     borderRadius: menuRadius.md,
     alignItems: "center",
-    marginTop: "auto",
+    marginTop: 16,
   },
 
   menuButtonPressed: {
@@ -709,7 +752,7 @@ const styles = StyleSheet.create({
   webAdminButton: {
     alignSelf: "center",
     marginTop: 8,
-    padding: 6,
+    padding: 8,
   },
 
   webAdminButtonPressed: {
@@ -724,7 +767,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     alignSelf: "center",
     marginTop: 4,
-    padding: 6,
+    padding: 8,
   },
 
   buttonPressed: {

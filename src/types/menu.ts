@@ -9,6 +9,7 @@ export type MenuSpecOption = {
   label: string;
   price: number;
   isDefault?: boolean;
+  available?: boolean;
 };
 
 export type MenuSpec = {

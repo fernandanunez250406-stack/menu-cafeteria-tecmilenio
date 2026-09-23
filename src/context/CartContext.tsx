@@ -10,6 +10,8 @@ import {
   useState,
 } from "react";
 
+import { Platform } from "react-native";
+
 import { MenuItem } from "../types/menu";
 
 import {
@@ -17,6 +19,8 @@ import {
   getOrders,
   OrderStatus,
 } from "../services/api";
+
+import { registerForPushNotificationsAsync } from "../services/notifications";
 
 import { showAlert } from "../utils/crossPlatformConfirm";
 
@@ -47,8 +51,6 @@ export type Order = {
   updatedAt?: string;
   authCode: string;
   studentName: string;
-
-  // Información adicional enviada por el servidor
   cancellationReason?: string;
   cancelledAt?: string;
   notice?: string;
@@ -64,20 +66,15 @@ type CartContextType = {
   ) => void;
 
   removeFromCart: (cartItemId: string) => void;
+
   increaseQuantity: (cartItemId: string) => void;
+
   decreaseQuantity: (cartItemId: string) => void;
+
   clearCart: () => void;
 
-  /**
-   * Envía el pedido al servidor, lo guarda en el historial local
-   * y limpia el carrito.
-   */
   createOrder: (studentName: string) => Promise<Order | null>;
 
-  /**
-   * Consulta nuevamente los pedidos en el servidor para reflejar
-   * cambios realizados por el administrador.
-   */
   refreshOrders: () => Promise<void>;
 
   totalItems: number;
@@ -100,8 +97,8 @@ const createCustomizationKey = (customizations: SelectedCustomization[]) => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pushToken, setPushToken] = useState<string | null>(null);
 
   const ordersRef = useRef<Order[]>(orders);
 
@@ -109,9 +106,38 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ordersRef.current = orders;
   }, [orders]);
 
-  /*
-   * Recuperar pedidos guardados localmente al iniciar.
-   */
+  /* =========================================================
+     REGISTRAR NOTIFICACIONES PUSH
+
+     IMPORTANTE:
+     En web las notificaciones no deben bloquear el flujo
+     de creación del pedido.
+  ========================================================= */
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+
+    const registerNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+
+        if (token) {
+          setPushToken(token);
+        }
+      } catch (error) {
+        console.error("Error registrando notificaciones push:", error);
+      }
+    };
+
+    void registerNotifications();
+  }, []);
+
+  /* =========================================================
+     RECUPERAR PEDIDOS GUARDADOS LOCALMENTE
+  ========================================================= */
+
   useEffect(() => {
     (async () => {
       try {
@@ -140,25 +166,93 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /* =========================================================
+     AGREGAR PRODUCTO AL CARRITO
+  ========================================================= */
+
   const addToCart = (
     product: MenuItem,
     selectedOptions: Record<string, string> = {},
   ) => {
+    /*
+     * Si el producto completo está agotado,
+     * nunca debe agregarse al carrito.
+     */
+
+    if (product.available === false) {
+      showAlert(
+        "Producto no disponible",
+        `${product.name} no está disponible en este momento.`,
+      );
+
+      return;
+    }
+
     const customizations: SelectedCustomization[] = [];
 
     const specs = Array.isArray(product.specs) ? product.specs : [];
 
-    specs.forEach((spec) => {
-      if (!spec || !Array.isArray(spec.options)) {
+    /*
+     * Revisamos cada especificación.
+     */
+
+    for (const spec of specs) {
+      if (!spec || !Array.isArray(spec.options) || spec.options.length === 0) {
+        continue;
+      }
+
+      /*
+       * Una opción está disponible si:
+       * - available === true
+       * - o no tiene el campo available.
+       */
+
+      const availableOptions = spec.options.filter(
+        (option) => option && option.available !== false,
+      );
+
+      /*
+       * Si ninguna opción está disponible,
+       * no podemos completar el producto.
+       */
+
+      if (availableOptions.length === 0) {
+        showAlert(
+          "Opción no disponible",
+          `No hay opciones disponibles para "${spec.label}" en ${product.name}.`,
+        );
+
         return;
       }
 
       const selectedOptionId = selectedOptions[spec.id];
 
-      const selectedOption =
-        spec.options.find((option) => option.id === selectedOptionId) ??
-        spec.options.find((option) => option.isDefault) ??
-        spec.options[0];
+      /*
+       * Primero intentamos utilizar exactamente
+       * la opción seleccionada por el cliente.
+       */
+
+      let selectedOption = availableOptions.find(
+        (option) => option.id === selectedOptionId,
+      );
+
+      /*
+       * Si no existe una selección válida,
+       * buscamos el default disponible.
+       */
+
+      if (!selectedOption) {
+        selectedOption = availableOptions.find((option) => option.isDefault);
+      }
+
+      /*
+       * Como último recurso usamos la primera
+       * opción disponible.
+       */
+
+      if (!selectedOption) {
+        selectedOption = availableOptions[0];
+      }
 
       if (!selectedOption) {
         return;
@@ -174,7 +268,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? selectedOption.price
             : 0,
       });
-    });
+    }
 
     const customizationPrice = customizations.reduce(
       (total, customization) => total + customization.price,
@@ -196,6 +290,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return existingKey === newCustomizationKey;
       });
 
+      /*
+       * Si ya existe el mismo producto con las
+       * mismas personalizaciones, aumentamos cantidad.
+       */
+
       if (existingItemIndex !== -1) {
         const existingItem = currentItems[existingItemIndex];
 
@@ -215,6 +314,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
+      /*
+       * Producto nuevo en el carrito.
+       */
+
       const newCartItem: CartItem = {
         id: createCartItemId(),
         product,
@@ -227,11 +330,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  /* =========================================================
+     ELIMINAR PRODUCTO DEL CARRITO
+  ========================================================= */
+
   const removeFromCart = (cartItemId: string) => {
     setCartItems((currentItems) =>
       currentItems.filter((item) => item.id !== cartItemId),
     );
   };
+
+  /* =========================================================
+     AUMENTAR CANTIDAD
+  ========================================================= */
 
   const increaseQuantity = (cartItemId: string) => {
     setCartItems((currentItems) =>
@@ -254,6 +365,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  /* =========================================================
+     DISMINUIR CANTIDAD
+  ========================================================= */
+
   const decreaseQuantity = (cartItemId: string) => {
     setCartItems((currentItems) =>
       currentItems
@@ -269,9 +384,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  /* =========================================================
+     LIMPIAR CARRITO
+  ========================================================= */
+
   const clearCart = () => {
     setCartItems([]);
   };
+
+  /* =========================================================
+     CREAR PEDIDO
+  ========================================================= */
 
   const createOrder = async (studentName: string): Promise<Order | null> => {
     if (cartItems.length === 0) {
@@ -292,11 +415,88 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
+    /*
+     * Validación final del carrito.
+     *
+     * Esto evita enviar productos u opciones
+     * que hayan quedado agotados.
+     */
+
+    for (const cartItem of cartItems) {
+      if (cartItem.product.available === false) {
+        showAlert(
+          "Producto no disponible",
+          `${cartItem.product.name} ya no está disponible. Retíralo del carrito antes de continuar.`,
+        );
+
+        return null;
+      }
+
+      for (const customization of cartItem.customizations) {
+        const spec = cartItem.product.specs?.find(
+          (currentSpec) => currentSpec.id === customization.specId,
+        );
+
+        if (!spec) {
+          continue;
+        }
+
+        const option = spec.options?.find(
+          (currentOption) => currentOption.id === customization.optionId,
+        );
+
+        if (!option || option.available === false) {
+          showAlert(
+            "Opción no disponible",
+            `La opción "${customization.optionLabel}" de ${cartItem.product.name} ya no está disponible. Revisa tu carrito.`,
+          );
+
+          return null;
+        }
+      }
+    }
+
     try {
+      /*
+       * En web NO intentamos registrar push antes
+       * de enviar el pedido.
+       *
+       * Esto evita que el botón se quede en
+       * "Enviando..." esperando permisos o APIs
+       * de notificaciones que no funcionan igual
+       * en navegador.
+       */
+
+      let currentPushToken = Platform.OS === "web" ? null : pushToken;
+
+      /*
+       * En móvil, si todavía no tenemos token,
+       * intentamos obtenerlo.
+       *
+       * Si falla, el pedido continúa igualmente.
+       */
+
+      if (Platform.OS !== "web" && !currentPushToken) {
+        try {
+          currentPushToken = await registerForPushNotificationsAsync();
+
+          if (currentPushToken) {
+            setPushToken(currentPushToken);
+          }
+        } catch (notificationError) {
+          console.error("No se pudo obtener el token push:", notificationError);
+        }
+      }
+
+      /*
+       * EL PEDIDO SE ENVÍA AL SERVIDOR.
+       */
+
       const backendOrder = await apiCreateOrder({
         items: cartItems,
         total: totalPrice,
         studentName: studentName.trim(),
+        pushToken: currentPushToken ?? undefined,
       });
 
       const order: Order = {
@@ -316,6 +516,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const nextOrders = [order, ...ordersRef.current];
 
       setOrders(nextOrders);
+
       ordersRef.current = nextOrders;
 
       await persistOrders(nextOrders);
@@ -335,24 +536,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /*
-   * =========================================================
-   * ACTUALIZAR PEDIDOS
-   *
-   * Antes se consultaba cada pedido individualmente:
-   *
-   * /orders/:id
-   *
-   * Eso provocaba errores cuando AsyncStorage tenía pedidos
-   * antiguos que ya no existían en Firestore.
-   *
-   * Ahora hacemos UNA sola petición:
-   *
-   * /orders
-   *
-   * y sincronizamos los pedidos que todavía existen.
-   * =========================================================
-   */
+  /* =========================================================
+     ACTUALIZAR PEDIDOS
+  ========================================================= */
+
   const refreshOrders = async () => {
     const currentOrders = ordersRef.current;
 
@@ -366,6 +553,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       /*
        * Mapa de pedidos actuales del servidor.
        */
+
       const backendOrdersMap = new Map(
         backendOrders.map((order) => [order.id, order]),
       );
@@ -375,18 +563,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         /*
          * Si el pedido local ya no existe
-         * en Firestore, lo conservamos
-         * localmente y dejamos de intentar
-         * consultarlo individualmente.
+         * en Firestore, lo conservamos.
          */
+
         if (!backendOrder) {
           return order;
         }
 
         /*
-         * Si existe, sincronizamos TODOS
-         * los datos importantes.
+         * Sincronizamos los datos importantes.
          */
+
         return {
           ...order,
 
@@ -418,6 +605,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
 
       setOrders(updated);
+
       ordersRef.current = updated;
 
       await persistOrders(updated);
@@ -425,6 +613,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error("Error actualizando pedidos:", error);
     }
   };
+
+  /* =========================================================
+     TOTALES DEL CARRITO
+  ========================================================= */
 
   const totalItems = useMemo(
     () => cartItems.reduce((total, item) => total + item.quantity, 0),
@@ -439,6 +631,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ),
     [cartItems],
   );
+
+  /* =========================================================
+     CONTEXTO
+  ========================================================= */
 
   const value: CartContextType = {
     cartItems,

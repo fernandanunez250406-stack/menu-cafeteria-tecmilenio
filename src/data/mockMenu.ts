@@ -13,7 +13,7 @@ export const mockCategories: MenuCategory[] = [
   },
   {
     id: "cat-panaderia",
-    label: "Panadería",
+    label: "Alimentos",
     emoji: "🥐",
   },
   {

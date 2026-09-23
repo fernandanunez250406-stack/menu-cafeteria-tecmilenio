@@ -22,7 +22,7 @@ import ProductFormModal from "../components/menu/ProductFormModal";
 import {
   menuRadius,
   menuSpacing,
-  menuTypography
+  menuTypography,
 } from "../constants/menuTheme";
 
 import { useAdmin } from "../context/AdminContext";
@@ -39,6 +39,7 @@ import {
 } from "../services/api";
 
 import { MenuItem, MenuItemDraft } from "../types/menu";
+
 import { confirmAction } from "../utils/crossPlatformConfirm";
 
 export default function MenuScreen() {
@@ -52,16 +53,32 @@ export default function MenuScreen() {
   const [searchText, setSearchText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch = item.name
-      .toLowerCase()
-      .includes(searchText.toLowerCase());
+  /*
+   * Filtrar productos y después colocar primero
+   * los que tienen opciones de personalización.
+   *
+   * item.specs.length > 0 = producto personalizable
+   */
+  const filteredItems = items
+    .filter((item) => {
+      const matchesSearch = item.name
+        .toLowerCase()
+        .includes(searchText.toLowerCase());
 
-    const matchesCategory =
-      selectedCategory === "Todos" || item.categoryId === selectedCategory;
+      const matchesCategory =
+        selectedCategory === "Todos" || item.categoryId === selectedCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const aIsCustomizable = a.specs.length > 0;
+      const bIsCustomizable = b.specs.length > 0;
+
+      if (aIsCustomizable && !bIsCustomizable) return -1;
+      if (!aIsCustomizable && bIsCustomizable) return 1;
+
+      return 0;
+    });
 
   const [detailItem, setDetailItem] = useState<MenuItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -378,7 +395,6 @@ const styles = StyleSheet.create({
   headerRow: {
     paddingHorizontal: menuSpacing.lg,
     paddingTop: menuSpacing.md,
-
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -428,18 +444,13 @@ const styles = StyleSheet.create({
     marginHorizontal: menuSpacing.lg,
     marginTop: menuSpacing.md,
     marginBottom: menuSpacing.sm,
-
     paddingHorizontal: menuSpacing.md,
     paddingVertical: menuSpacing.sm,
-
     borderWidth: 1,
     borderColor: "#DDDDDD",
     borderRadius: menuRadius.md,
-
     backgroundColor: "#FFFFFF",
-
     color: "#222222",
-
     fontSize: 14,
   },
 
@@ -460,16 +471,11 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingHorizontal: menuSpacing.md,
     height: 38,
-
     justifyContent: "center",
-
     borderRadius: menuRadius.pill,
-
     backgroundColor: "#F8F8F8",
-
     borderWidth: 1,
     borderColor: "#DDDDDD",
-
     marginRight: 10,
   },
 
@@ -495,12 +501,9 @@ const styles = StyleSheet.create({
 
   addButton: {
     backgroundColor: "#7A4B2A",
-
     paddingHorizontal: menuSpacing.md,
     height: 42,
-
     borderRadius: menuRadius.md,
-
     justifyContent: "center",
     alignItems: "center",
   },
@@ -518,14 +521,10 @@ const styles = StyleSheet.create({
   cartHeaderButton: {
     width: 42,
     height: 42,
-
     borderRadius: menuRadius.md,
-
     backgroundColor: "#F7F0EA",
-
     borderWidth: 1,
     borderColor: "#7A4B2A",
-
     alignItems: "center",
     justifyContent: "center",
   },
@@ -536,20 +535,14 @@ const styles = StyleSheet.create({
 
   cartBadge: {
     position: "absolute",
-
     top: -6,
     right: -6,
-
     minWidth: 20,
     height: 20,
-
     borderRadius: 10,
-
     backgroundColor: "#7A4B2A",
-
     alignItems: "center",
     justifyContent: "center",
-
     paddingHorizontal: 4,
   },
 

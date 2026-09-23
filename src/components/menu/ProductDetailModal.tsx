@@ -39,6 +39,10 @@ export default function ProductDetailModal({
     Record<string, string>
   >({});
 
+  // =========================================================
+  // ESPECIFICACIONES VÁLIDAS
+  // =========================================================
+
   const specs = useMemo(() => {
     if (!item || !Array.isArray(item.specs)) {
       return [];
@@ -55,6 +59,40 @@ export default function ProductDetailModal({
     );
   }, [item]);
 
+  // =========================================================
+  // ESTADO DE DISPONIBILIDAD
+  // =========================================================
+
+  const productAvailable = item?.available !== false;
+
+  const specsWithAvailability = useMemo(() => {
+    return specs.map((spec) => {
+      const availableOptions = spec.options.filter(
+        (option) => option && option.available !== false,
+      );
+
+      return {
+        ...spec,
+        availableOptions,
+        hasAvailableOptions: availableOptions.length > 0,
+      };
+    });
+  }, [specs]);
+
+  const hasUnavailableOptions = useMemo(() => {
+    return specs.some((spec) =>
+      spec.options.some((option) => option && option.available === false),
+    );
+  }, [specs]);
+
+  const hasUnavailableEntireSpec = useMemo(() => {
+    return specsWithAvailability.some((spec) => !spec.hasAvailableOptions);
+  }, [specsWithAvailability]);
+
+  // =========================================================
+  // SELECCIONES INICIALES
+  // =========================================================
+
   useEffect(() => {
     if (!item) {
       setSelectedOptions({});
@@ -64,23 +102,92 @@ export default function ProductDetailModal({
     const defaultSelections: Record<string, string> = {};
 
     specs.forEach((spec) => {
-      const defaultOption =
-        spec.options.find((option) => option.isDefault) ?? spec.options[0];
+      const availableOptions = spec.options.filter(
+        (option) => option && option.available !== false,
+      );
 
-      if (defaultOption) {
-        defaultSelections[spec.id] = defaultOption.id;
+      if (availableOptions.length === 0) {
+        return;
+      }
+
+      // Primero intentamos usar el default si está disponible.
+      const defaultOption = availableOptions.find((option) => option.isDefault);
+
+      // Si no existe default disponible, usamos la primera
+      // opción disponible.
+      const selectedOption = defaultOption ?? availableOptions[0];
+
+      if (selectedOption) {
+        defaultSelections[spec.id] = selectedOption.id;
       }
     });
 
     setSelectedOptions(defaultSelections);
   }, [item, specs]);
 
+  // =========================================================
+  // SELECCIONAR OPCIÓN
+  // =========================================================
+
   const handleSelectOption = (specId: string, optionId: string) => {
+    const spec = specs.find((currentSpec) => currentSpec.id === specId);
+
+    if (!spec) {
+      return;
+    }
+
+    const option = spec.options.find(
+      (currentOption) => currentOption.id === optionId,
+    );
+
+    if (!option) {
+      return;
+    }
+
+    // Una opción agotada nunca puede seleccionarse.
+    if (option.available === false) {
+      return;
+    }
+
     setSelectedOptions((current) => ({
       ...current,
       [specId]: optionId,
     }));
   };
+
+  // =========================================================
+  // VALIDAR SELECCIONES
+  // =========================================================
+
+  const missingSelections = useMemo(() => {
+    return specsWithAvailability.filter((spec) => {
+      if (!spec.hasAvailableOptions) {
+        return true;
+      }
+
+      const selectedOptionId = selectedOptions[spec.id];
+
+      if (!selectedOptionId) {
+        return true;
+      }
+
+      const selectedOption = spec.options.find(
+        (option) => option.id === selectedOptionId,
+      );
+
+      return !selectedOption || selectedOption.available === false;
+    });
+  }, [specsWithAvailability, selectedOptions]);
+
+  const canAddToCart =
+    !isAdmin &&
+    productAvailable &&
+    !hasUnavailableEntireSpec &&
+    missingSelections.length === 0;
+
+  // =========================================================
+  // PRECIO DE PERSONALIZACIÓN
+  // =========================================================
 
   const customizationPrice = useMemo(() => {
     return specs.reduce((total, spec) => {
@@ -94,9 +201,24 @@ export default function ProductDetailModal({
         (option) => option.id === selectedOptionId,
       );
 
-      return total + (selectedOption?.price ?? 0);
+      // Por seguridad, una opción agotada no suma
+      // al precio porque nunca debería estar seleccionada.
+      if (!selectedOption || selectedOption.available === false) {
+        return total;
+      }
+
+      const optionPrice =
+        Number.isFinite(selectedOption.price) && selectedOption.price > 0
+          ? selectedOption.price
+          : 0;
+
+      return total + optionPrice;
     }, 0);
   }, [specs, selectedOptions]);
+
+  // =========================================================
+  // PRECIO FINAL
+  // =========================================================
 
   const finalPrice = useMemo(() => {
     if (!item) {
@@ -105,6 +227,30 @@ export default function ProductDetailModal({
 
     return item.price + customizationPrice;
   }, [item, customizationPrice]);
+
+  // =========================================================
+  // AGREGAR AL CARRITO
+  // =========================================================
+
+  const handleAddToCart = () => {
+    if (!item) {
+      return;
+    }
+
+    if (!productAvailable) {
+      return;
+    }
+
+    if (hasUnavailableEntireSpec) {
+      return;
+    }
+
+    if (missingSelections.length > 0) {
+      return;
+    }
+
+    onAddToCart(item, selectedOptions);
+  };
 
   if (!item) {
     return null;
@@ -123,14 +269,16 @@ export default function ProductDetailModal({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Botón cerrar */}
+            {/* BOTÓN CERRAR */}
+
             <View style={styles.header}>
               <Pressable style={styles.closeButton} onPress={onClose}>
                 <Text style={styles.closeButtonText}>×</Text>
               </Pressable>
             </View>
 
-            {/* Imagen del producto */}
+            {/* IMAGEN */}
+
             <View style={styles.imageContainer}>
               {item.photoUri ? (
                 <Image
@@ -143,9 +291,27 @@ export default function ProductDetailModal({
               )}
             </View>
 
-            {/* Información del producto */}
+            {/* INFORMACIÓN */}
+
             <View style={styles.infoContainer}>
-              <Text style={styles.productName}>{item.name}</Text>
+              <View style={styles.productTitleRow}>
+                <Text
+                  style={[
+                    styles.productName,
+                    !productAvailable && styles.productNameUnavailable,
+                  ]}
+                >
+                  {item.name}
+                </Text>
+
+                {!productAvailable && (
+                  <View style={styles.productUnavailableBadge}>
+                    <Text style={styles.productUnavailableBadgeText}>
+                      Agotado
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               {!!item.description && (
                 <Text style={styles.description}>{item.description}</Text>
@@ -154,34 +320,79 @@ export default function ProductDetailModal({
               <Text style={styles.basePrice}>${item.price.toFixed(2)}</Text>
             </View>
 
-            {/* Personalizaciones */}
+            {/* AVISO GENERAL DE PRODUCTO AGOTADO */}
+
+            {!productAvailable && (
+              <View style={styles.unavailableProductNotice}>
+                <View style={styles.noticeIndicator} />
+
+                <View style={styles.noticeContent}>
+                  <Text style={styles.noticeTitle}>Producto no disponible</Text>
+
+                  <Text style={styles.noticeText}>
+                    Por el momento no podemos agregar este producto al carrito.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* PERSONALIZACIONES */}
+
             {specs.length > 0 && (
               <View style={styles.customizationContainer}>
                 <Text style={styles.customizationTitle}>
                   Personaliza tu producto
                 </Text>
 
-                {specs.map((spec, specIndex) => {
-                  if (
-                    !spec ||
-                    !Array.isArray(spec.options) ||
-                    spec.options.length === 0
-                  ) {
-                    return null;
-                  }
+                {/* AVISO DE OPCIONES */}
+
+                {productAvailable &&
+                  hasUnavailableOptions &&
+                  !hasUnavailableEntireSpec && (
+                    <View style={styles.optionsNotice}>
+                      <View style={styles.optionsNoticeIndicator} />
+
+                      <Text style={styles.optionsNoticeText}>
+                        Algunas opciones están agotadas, pero puedes elegir
+                        entre las disponibles.
+                      </Text>
+                    </View>
+                  )}
+
+                {specs.map((spec) => {
+                  const availableOptions = spec.options.filter(
+                    (option) => option && option.available !== false,
+                  );
+
+                  const allUnavailable = availableOptions.length === 0;
 
                   return (
-                    <View
-                      key={spec.id || `spec-${specIndex}`}
-                      style={styles.specContainer}
-                    >
-                      <Text style={styles.specLabel}>{spec.label}</Text>
+                    <View key={spec.id} style={styles.specContainer}>
+                      <View style={styles.specHeaderRow}>
+                        <Text style={styles.specLabel}>{spec.label}</Text>
+
+                        {allUnavailable && (
+                          <View style={styles.specUnavailableBadge}>
+                            <Text style={styles.specUnavailableBadgeText}>
+                              Agotado
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {allUnavailable && (
+                        <Text style={styles.allOptionsUnavailableText}>
+                          No hay opciones disponibles actualmente.
+                        </Text>
+                      )}
 
                       <View style={styles.optionsContainer}>
                         {spec.options.map((option) => {
                           if (!option) {
                             return null;
                           }
+
+                          const isAvailable = option.available !== false;
 
                           const isSelected =
                             selectedOptions[spec.id] === option.id;
@@ -196,35 +407,64 @@ export default function ProductDetailModal({
                               key={option.id}
                               style={[
                                 styles.optionButton,
-                                isSelected && styles.optionButtonSelected,
+                                !isAvailable && styles.optionButtonUnavailable,
+                                isSelected &&
+                                  isAvailable &&
+                                  styles.optionButtonSelected,
                               ]}
                               onPress={() =>
                                 handleSelectOption(spec.id, option.id)
                               }
+                              disabled={!isAvailable || !productAvailable}
                             >
                               <View style={styles.optionInfo}>
-                                <Text
-                                  style={[
-                                    styles.optionText,
-                                    isSelected && styles.optionTextSelected,
-                                  ]}
-                                >
-                                  {option.label}
-                                </Text>
+                                <View style={styles.optionTextRow}>
+                                  <Text
+                                    style={[
+                                      styles.optionText,
+                                      !isAvailable &&
+                                        styles.optionTextUnavailable,
+                                      isSelected &&
+                                        isAvailable &&
+                                        styles.optionTextSelected,
+                                    ]}
+                                  >
+                                    {option.label}
+                                  </Text>
 
-                                {optionPrice > 0 && (
+                                  {!isAvailable && (
+                                    <View style={styles.unavailableOptionBadge}>
+                                      <Text
+                                        style={
+                                          styles.unavailableOptionBadgeText
+                                        }
+                                      >
+                                        No disponible
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+
+                                {isAvailable && optionPrice > 0 && (
                                   <Text
                                     style={[
                                       styles.optionPrice,
                                       isSelected && styles.optionPriceSelected,
                                     ]}
                                   >
-                                    +${optionPrice.toFixed(2)}
+                                    +$
+                                    {optionPrice.toFixed(2)}
+                                  </Text>
+                                )}
+
+                                {!isAvailable && (
+                                  <Text style={styles.unavailableOptionText}>
+                                    Elige otra opción disponible
                                   </Text>
                                 )}
                               </View>
 
-                              {isSelected && (
+                              {isSelected && isAvailable && (
                                 <Text style={styles.checkmark}>✓</Text>
                               )}
                             </Pressable>
@@ -237,7 +477,8 @@ export default function ProductDetailModal({
               </View>
             )}
 
-            {/* Resumen de precio */}
+            {/* RESUMEN DE PRECIO */}
+
             <View style={styles.priceSummary}>
               <View style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Precio base</Text>
@@ -250,7 +491,8 @@ export default function ProductDetailModal({
                   <Text style={styles.priceLabel}>Personalización</Text>
 
                   <Text style={styles.priceValue}>
-                    +${customizationPrice.toFixed(2)}
+                    +$
+                    {customizationPrice.toFixed(2)}
                   </Text>
                 </View>
               )}
@@ -264,7 +506,8 @@ export default function ProductDetailModal({
               </View>
             </View>
 
-            {/* Botones de administrador */}
+            {/* ADMIN */}
+
             {isAdmin && (
               <View style={styles.adminActions}>
                 <Pressable
@@ -283,16 +526,63 @@ export default function ProductDetailModal({
               </View>
             )}
 
-            {/* Agregar al carrito */}
+            {/* CLIENTE */}
+
             {!isAdmin && (
-              <Pressable
-                style={styles.addButton}
-                onPress={() => onAddToCart(item, selectedOptions)}
-              >
-                <Text style={styles.addButtonText}>
-                  Agregar al carrito · ${finalPrice.toFixed(2)}
-                </Text>
-              </Pressable>
+              <>
+                {productAvailable && hasUnavailableEntireSpec && (
+                  <View style={styles.blockedAddNotice}>
+                    <Text style={styles.blockedAddNoticeTitle}>
+                      No disponible actualmente
+                    </Text>
+
+                    <Text style={styles.blockedAddNoticeText}>
+                      Todas las opciones de{" "}
+                      {
+                        specsWithAvailability.find(
+                          (spec) => !spec.hasAvailableOptions,
+                        )?.label
+                      }{" "}
+                      están agotadas.
+                    </Text>
+                  </View>
+                )}
+
+                {productAvailable &&
+                  !hasUnavailableEntireSpec &&
+                  missingSelections.length > 0 && (
+                    <View style={styles.selectionNotice}>
+                      <Text style={styles.selectionNoticeText}>
+                        Selecciona una opción disponible para cada
+                        especificación.
+                      </Text>
+                    </View>
+                  )}
+
+                <Pressable
+                  style={[
+                    styles.addButton,
+                    !canAddToCart && styles.addButtonDisabled,
+                  ]}
+                  onPress={handleAddToCart}
+                  disabled={!canAddToCart}
+                >
+                  <Text
+                    style={[
+                      styles.addButtonText,
+                      !canAddToCart && styles.addButtonTextDisabled,
+                    ]}
+                  >
+                    {!productAvailable
+                      ? "Producto agotado"
+                      : hasUnavailableEntireSpec
+                        ? "Opciones agotadas"
+                        : missingSelections.length > 0
+                          ? "Selecciona tus opciones"
+                          : `Agregar al carrito · $${finalPrice.toFixed(2)}`}
+                  </Text>
+                </Pressable>
+              </>
             )}
           </ScrollView>
         </View>
@@ -300,6 +590,10 @@ export default function ProductDetailModal({
     </Modal>
   );
 }
+
+// =========================================================
+// STYLES
+// =========================================================
 
 const styles = StyleSheet.create({
   overlay: {
@@ -323,6 +617,10 @@ const styles = StyleSheet.create({
     paddingBottom: 35,
   },
 
+  // =======================================================
+  // HEADER
+  // =======================================================
+
   header: {
     alignItems: "flex-end",
     marginBottom: 4,
@@ -344,6 +642,10 @@ const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
+  // =======================================================
+  // IMAGEN
+  // =======================================================
+
   imageContainer: {
     width: "100%",
     height: 220,
@@ -364,15 +666,47 @@ const styles = StyleSheet.create({
     fontSize: 82,
   },
 
+  // =======================================================
+  // INFORMACIÓN
+  // =======================================================
+
   infoContainer: {
     marginBottom: 24,
   },
 
+  productTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
   productName: {
+    flex: 1,
     fontSize: 28,
     fontWeight: "700",
     color: "#222",
     marginBottom: 10,
+  },
+
+  productNameUnavailable: {
+    color: "#795548",
+  },
+
+  productUnavailableBadge: {
+    backgroundColor: "#e9ddd5",
+    borderWidth: 1,
+    borderColor: "#d0b8ab",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+
+  productUnavailableBadgeText: {
+    color: "#795548",
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   description: {
@@ -388,6 +722,50 @@ const styles = StyleSheet.create({
     color: "#7a4b2a",
   },
 
+  // =======================================================
+  // AVISO PRODUCTO AGOTADO
+  // =======================================================
+
+  unavailableProductNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5e9e4",
+    borderWidth: 1,
+    borderColor: "#dfc5ba",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+  },
+
+  noticeIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#9a5140",
+    marginRight: 10,
+  },
+
+  noticeContent: {
+    flex: 1,
+  },
+
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#795548",
+    marginBottom: 3,
+  },
+
+  noticeText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#795548",
+  },
+
+  // =======================================================
+  // PERSONALIZACIONES
+  // =======================================================
+
   customizationContainer: {
     marginBottom: 20,
   },
@@ -396,23 +774,85 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: "#222",
+    marginBottom: 14,
+  },
+
+  optionsNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f7f3ee",
+    borderWidth: 1,
+    borderColor: "#e2d4ca",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginBottom: 18,
+  },
+
+  optionsNoticeIndicator: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#7a4b2a",
+    marginRight: 9,
+  },
+
+  optionsNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#6b584d",
+    fontWeight: "500",
   },
 
   specContainer: {
     marginBottom: 20,
   },
 
+  specHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 10,
+  },
+
   specLabel: {
+    flex: 1,
     fontSize: 17,
     fontWeight: "600",
     color: "#333",
+  },
+
+  specUnavailableBadge: {
+    backgroundColor: "#f5e3dd",
+    borderWidth: 1,
+    borderColor: "#d39a88",
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+
+  specUnavailableBadgeText: {
+    fontSize: 11,
+    color: "#9a5140",
+    fontWeight: "700",
+  },
+
+  allOptionsUnavailableText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#9a5140",
     marginBottom: 10,
   },
 
   optionsContainer: {
     gap: 10,
   },
+
+  // =======================================================
+  // OPCIONES
+  // =======================================================
 
   optionButton: {
     minHeight: 58,
@@ -432,8 +872,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#f7f0ea",
   },
 
+  optionButtonUnavailable: {
+    backgroundColor: "#f5f3f1",
+    borderColor: "#e1dcd8",
+    opacity: 0.75,
+  },
+
   optionInfo: {
     flex: 1,
+  },
+
+  optionTextRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 7,
   },
 
   optionText: {
@@ -447,6 +900,24 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  optionTextUnavailable: {
+    color: "#8a817c",
+    textDecorationLine: "line-through",
+  },
+
+  unavailableOptionBadge: {
+    backgroundColor: "#e9ddd5",
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+
+  unavailableOptionBadgeText: {
+    color: "#795548",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+
   optionPrice: {
     marginTop: 3,
     fontSize: 13,
@@ -457,12 +928,22 @@ const styles = StyleSheet.create({
     color: "#7a4b2a",
   },
 
+  unavailableOptionText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#9a5140",
+  },
+
   checkmark: {
     fontSize: 22,
     fontWeight: "700",
     color: "#7a4b2a",
     marginLeft: 12,
   },
+
+  // =======================================================
+  // RESUMEN
+  // =======================================================
 
   priceSummary: {
     backgroundColor: "#f8f8f8",
@@ -508,6 +989,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  // =======================================================
+  // ADMIN
+  // =======================================================
+
   adminActions: {
     gap: 10,
     marginBottom: 15,
@@ -539,6 +1024,51 @@ const styles = StyleSheet.create({
     color: "#c62828",
   },
 
+  // =======================================================
+  // AVISOS DEL BOTÓN
+  // =======================================================
+
+  blockedAddNotice: {
+    backgroundColor: "#f5e3dd",
+    borderWidth: 1,
+    borderColor: "#d39a88",
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 12,
+  },
+
+  blockedAddNoticeTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#9a5140",
+    marginBottom: 3,
+  },
+
+  blockedAddNoticeText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#795548",
+  },
+
+  selectionNotice: {
+    backgroundColor: "#f7f3ee",
+    borderWidth: 1,
+    borderColor: "#e2d4ca",
+    borderRadius: 12,
+    padding: 11,
+    marginBottom: 12,
+  },
+
+  selectionNoticeText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#6b584d",
+  },
+
+  // =======================================================
+  // AGREGAR
+  // =======================================================
+
   addButton: {
     backgroundColor: "#7a4b2a",
     borderRadius: 16,
@@ -547,9 +1077,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  addButtonDisabled: {
+    backgroundColor: "#e4dfdb",
+  },
+
   addButtonText: {
     color: "#fff",
     fontSize: 17,
     fontWeight: "700",
+  },
+
+  addButtonTextDisabled: {
+    color: "#8a817c",
   },
 });
