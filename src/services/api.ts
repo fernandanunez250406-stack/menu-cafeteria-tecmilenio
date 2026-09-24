@@ -63,6 +63,23 @@ export const toggleItemAvailability = (id: string, available: boolean) =>
   });
 
 /* =========================================================
+   ESTADO DE LA CAFETERÍA
+========================================================= */
+
+export type StoreStatus = {
+  isOpen: boolean;
+  updatedAt?: string;
+};
+
+export const getStoreStatus = () => request<StoreStatus>("/store-status");
+
+export const updateStoreStatus = (isOpen: boolean) =>
+  request<StoreStatus>("/store-status", {
+    method: "PUT",
+    body: JSON.stringify({ isOpen }),
+  });
+
+/* =========================================================
    ÓRDENES
 ========================================================= */
 
@@ -98,18 +115,18 @@ export type BackendOrder = {
   updatedAt: string;
 
   /**
+   * Identificador persistente de la instalación/dispositivo
+   * que creó el pedido.
+   */
+  clientId?: string;
+
+  /**
    * Token del dispositivo que creó el pedido.
-   *
-   * Se utilizará posteriormente para enviar
-   * notificaciones push sobre cambios de estado.
    */
   pushToken?: string;
 
   /**
    * Información de cancelación.
-   *
-   * Estos campos solamente existen cuando el pedido
-   * fue cancelado por falta de stock u otro motivo.
    */
   cancellationReason?: string;
 
@@ -121,6 +138,12 @@ export type BackendOrder = {
   notice?: string;
 };
 
+/**
+ * Crear una orden.
+ *
+ * clientId identifica al dispositivo/instalación que creó
+ * el pedido y permite recuperar únicamente sus pedidos.
+ */
 export const createOrder = async (orderData: {
   items: any[];
 
@@ -128,12 +151,10 @@ export const createOrder = async (orderData: {
 
   studentName: string;
 
+  clientId: string;
+
   /**
    * Token push del dispositivo del cliente.
-   *
-   * Es opcional porque actualmente pueden existir
-   * dispositivos que todavía no tengan notificaciones
-   * configuradas.
    */
   pushToken?: string;
 }) =>
@@ -150,6 +171,14 @@ export const createOrder = async (orderData: {
 export const getOrders = () => request<BackendOrder[]>("/orders");
 
 /**
+ * Órdenes pertenecientes a un cliente/dispositivo.
+ *
+ * Utilizado por la vista del cliente.
+ */
+export const getOrdersByClientId = (clientId: string) =>
+  request<BackendOrder[]>(`/orders/client/${encodeURIComponent(clientId)}`);
+
+/**
  * Una sola orden.
  */
 export const getOrderById = (id: string) =>
@@ -157,11 +186,26 @@ export const getOrderById = (id: string) =>
 
 /**
  * Cambiar estado de una orden.
+ *
+ * Utilizado por el administrador.
  */
 export const updateOrderStatus = (id: string, status: OrderStatus) =>
   request<BackendOrder>(`/orders/${encodeURIComponent(id)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+
+/**
+ * Cancelar una orden desde el cliente.
+ *
+ * El backend debe verificar:
+ * 1. Que el clientId sea dueño de la orden.
+ * 2. Que la orden esté en pendiente o preparando.
+ */
+export const cancelOrder = (id: string, clientId: string) =>
+  request<BackendOrder>(`/orders/${encodeURIComponent(id)}/cancel`, {
+    method: "PATCH",
+    body: JSON.stringify({ clientId }),
   });
 
 /**

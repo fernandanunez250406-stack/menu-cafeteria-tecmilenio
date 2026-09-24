@@ -37,22 +37,18 @@ const sendPushNotification = async (
       title: "Pedido recibido",
       body: `Tu pedido #${orderNumber ?? "—"} fue recibido correctamente.`,
     },
-
     preparando: {
       title: "Tu pedido está en preparación",
       body: `El pedido #${orderNumber ?? "—"} ya está siendo preparado.`,
     },
-
     listo: {
       title: "Tu pedido está listo",
       body: `El pedido #${orderNumber ?? "—"} está listo para recoger.`,
     },
-
     entregado: {
       title: "Pedido entregado",
       body: `El pedido #${orderNumber ?? "—"} fue marcado como entregado.`,
     },
-
     cancelado: {
       title: "Pedido cancelado",
       body: `El pedido #${orderNumber ?? "—"} fue cancelado.`,
@@ -87,7 +83,6 @@ const sendPushNotification = async (
 
     if (!response.ok) {
       console.error("Error enviando notificación push:", data);
-
       return;
     }
 
@@ -96,13 +91,80 @@ const sendPushNotification = async (
       status,
     );
   } catch (error) {
-    /*
-     * Una falla de notificación NO debe impedir
-     * que el estado del pedido se actualice.
-     */
     console.error("Error enviando notificación push:", error);
   }
 };
+
+/* =========================================================
+   ESTADO DE LA CAFETERÍA
+========================================================= */
+
+router.get("/store-status", async (_req: Request, res: Response) => {
+  try {
+    const storeRef = db.collection("cafeteria").doc("settings");
+    const snapshot = await storeRef.get();
+
+    if (!snapshot.exists) {
+      const now = new Date().toISOString();
+
+      const defaultStatus = {
+        isOpen: true,
+        updatedAt: now,
+      };
+
+      await storeRef.set(defaultStatus);
+
+      return res.status(200).json(defaultStatus);
+    }
+
+    const data = snapshot.data() ?? {};
+
+    return res.status(200).json({
+      isOpen: typeof data.isOpen === "boolean" ? data.isOpen : true,
+      updatedAt:
+        typeof data.updatedAt === "string" ? data.updatedAt : undefined,
+    });
+  } catch (error) {
+    console.error("Error obteniendo estado de la cafetería:", error);
+
+    return res.status(500).json({
+      error: "No se pudo obtener el estado de la cafetería",
+    });
+  }
+});
+
+router.put("/store-status", async (req: Request, res: Response) => {
+  try {
+    const { isOpen } = req.body;
+
+    if (typeof isOpen !== "boolean") {
+      return res.status(400).json({
+        error: "El estado de la cafetería debe ser booleano",
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    const storeStatus = {
+      isOpen,
+      updatedAt: now,
+    };
+
+    const storeRef = db.collection("cafeteria").doc("settings");
+
+    await storeRef.set(storeStatus, {
+      merge: true,
+    });
+
+    return res.status(200).json(storeStatus);
+  } catch (error) {
+    console.error("Error actualizando estado de la cafetería:", error);
+
+    return res.status(500).json({
+      error: "No se pudo actualizar el estado de la cafetería",
+    });
+  }
+});
 
 /* =========================================================
    PRODUCTOS - OBTENER MENÚ
@@ -198,7 +260,6 @@ router.put("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
-
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -249,7 +310,6 @@ router.delete("/menu/:id", async (req: Request, res: Response) => {
     }
 
     const productRef = db.collection("menu").doc(id);
-
     const productSnapshot = await productRef.get();
 
     if (!productSnapshot.exists) {
@@ -357,7 +417,7 @@ const generateOrderNumber = async (): Promise<number> => {
 
 router.post("/orders", async (req: Request, res: Response) => {
   try {
-    const { items, total, studentName, pushToken } = req.body;
+    const { items, total, studentName, clientId, pushToken } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -381,12 +441,32 @@ router.post("/orders", async (req: Request, res: Response) => {
       });
     }
 
-    const now = new Date().toISOString();
+    if (!clientId || typeof clientId !== "string" || !clientId.trim()) {
+      return res.status(400).json({
+        error: "La orden necesita un identificador de cliente",
+      });
+    }
 
+    const storeRef = db.collection("cafeteria").doc("settings");
+    const storeSnapshot = await storeRef.get();
+
+    if (storeSnapshot.exists) {
+      const storeData = storeSnapshot.data() ?? {};
+
+      if (storeData.isOpen === false) {
+        return res.status(403).json({
+          error:
+            "La cafetería está cerrada y no acepta pedidos en este momento.",
+        });
+      }
+    }
+
+    const now = new Date().toISOString();
     const authCode = await generateOrderNumber();
 
     const order = {
       authCode,
+      clientId: clientId.trim(),
       items,
       total: Number(total),
       studentName: studentName.trim(),
@@ -394,10 +474,6 @@ router.post("/orders", async (req: Request, res: Response) => {
       createdAt: now,
       updatedAt: now,
 
-      /*
-       * Solamente guardamos el token si
-       * realmente recibimos uno válido.
-       */
       ...(typeof pushToken === "string" && pushToken.trim()
         ? {
             pushToken: pushToken.trim(),
@@ -407,12 +483,6 @@ router.post("/orders", async (req: Request, res: Response) => {
 
     const docRef = await db.collection("orders").add(order);
 
-    /*
-     * Notificamos que el pedido fue recibido.
-     *
-     * Si todavía no hay token, simplemente
-     * no se envía ninguna notificación.
-     */
     if (typeof pushToken === "string" && pushToken.trim()) {
       void sendPushNotification(pushToken, "pendiente", authCode);
     }
@@ -432,6 +502,7 @@ router.post("/orders", async (req: Request, res: Response) => {
 
 /* =========================================================
    ÓRDENES - OBTENER TODAS
+   Utilizado por el administrador.
 ========================================================= */
 
 router.get("/orders", async (_req: Request, res: Response) => {
@@ -452,6 +523,161 @@ router.get("/orders", async (_req: Request, res: Response) => {
 
     return res.status(500).json({
       error: "No se pudieron obtener las órdenes",
+    });
+  }
+});
+
+/* =========================================================
+   ÓRDENES - OBTENER POR CLIENTE
+   Utilizado por los clientes.
+========================================================= */
+
+router.get("/orders/client/:clientId", async (req: Request, res: Response) => {
+  try {
+    const clientId = req.params.clientId as string;
+
+    if (!clientId || !clientId.trim()) {
+      return res.status(400).json({
+        error: "Falta el identificador del cliente",
+      });
+    }
+
+    const snapshot = await db
+      .collection("orders")
+      .where("clientId", "==", clientId.trim())
+      .get();
+
+    const orders = snapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .sort(
+        (a: any, b: any) =>
+          new Date(String(b.createdAt ?? "")).getTime() -
+          new Date(String(a.createdAt ?? "")).getTime(),
+      );
+
+    return res.status(200).json(orders);
+  } catch (error) {
+    console.error("Error obteniendo órdenes del cliente:", error);
+
+    return res.status(500).json({
+      error: "No se pudieron obtener los pedidos del cliente",
+    });
+  }
+});
+
+/* =========================================================
+   ÓRDENES - CANCELAR DESDE EL CLIENTE
+
+   El cliente SOLAMENTE puede cancelar:
+   - pendiente
+
+   No puede cancelar:
+   - preparando
+   - listo
+   - entregado
+   - cancelado
+
+   Además, solamente puede cancelar pedidos
+   que pertenezcan a su propio clientId.
+========================================================= */
+
+router.patch("/orders/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { clientId } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Falta el ID de la orden",
+      });
+    }
+
+    if (!clientId || typeof clientId !== "string" || !clientId.trim()) {
+      return res.status(400).json({
+        error: "Falta el identificador del cliente",
+      });
+    }
+
+    const orderRef = db.collection("orders").doc(id);
+    const orderSnapshot = await orderRef.get();
+
+    if (!orderSnapshot.exists) {
+      return res.status(404).json({
+        error: "Orden no encontrada",
+      });
+    }
+
+    const orderData = orderSnapshot.data() ?? {};
+
+    /* =====================================================
+         SEGURIDAD:
+         El pedido debe pertenecer al cliente que intenta
+         cancelarlo.
+      ===================================================== */
+
+    if (
+      typeof orderData.clientId !== "string" ||
+      orderData.clientId !== clientId.trim()
+    ) {
+      return res.status(403).json({
+        error: "No tienes permiso para cancelar esta orden",
+      });
+    }
+
+    const currentStatus = orderData.status;
+
+    /* =====================================================
+         REGLA DE CANCELACIÓN:
+
+         SOLO se puede cancelar cuando está pendiente.
+
+         Si ya está preparando, listo, entregado o cancelado,
+         el servidor rechaza la cancelación.
+      ===================================================== */
+
+    if (currentStatus !== "pendiente") {
+      return res.status(409).json({
+        error:
+          "Este pedido ya no puede cancelarse porque comenzó su preparación.",
+      });
+    }
+
+    const updatedAt = new Date().toISOString();
+    const cancelledAt = updatedAt;
+
+    const cancellationReason = "Pedido cancelado por el cliente.";
+
+    await orderRef.update({
+      status: "cancelado",
+      cancellationReason,
+      cancelledAt,
+      updatedAt,
+    });
+
+    const pushToken =
+      typeof orderData.pushToken === "string" ? orderData.pushToken : undefined;
+
+    const authCode =
+      typeof orderData.authCode === "number" ? orderData.authCode : undefined;
+
+    void sendPushNotification(pushToken, "cancelado", authCode);
+
+    return res.status(200).json({
+      id,
+      ...orderData,
+      status: "cancelado",
+      cancellationReason,
+      cancelledAt,
+      updatedAt,
+    });
+  } catch (error) {
+    console.error("Error cancelando orden desde el cliente:", error);
+
+    return res.status(500).json({
+      error: "No se pudo cancelar la orden",
     });
   }
 });
@@ -499,6 +725,7 @@ const ORDER_STATUSES = [
 
 /* =========================================================
    ÓRDENES - CAMBIAR ESTADO
+   Utilizado por el administrador.
 ========================================================= */
 
 router.patch("/orders/:id/status", async (req: Request, res: Response) => {
@@ -513,7 +740,6 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
     }
 
     const orderRef = db.collection("orders").doc(id);
-
     const orderSnapshot = await orderRef.get();
 
     if (!orderSnapshot.exists) {
@@ -523,23 +749,15 @@ router.patch("/orders/:id/status", async (req: Request, res: Response) => {
     }
 
     const orderData = orderSnapshot.data() ?? {};
-
     const previousStatus = orderData.status;
 
     const updatedAt = new Date().toISOString();
 
-    /*
-     * Actualizamos el pedido.
-     */
     await orderRef.update({
       status,
       updatedAt,
     });
 
-    /*
-     * Solamente enviamos una notificación
-     * si realmente cambió el estado.
-     */
     if (previousStatus !== status) {
       const pushToken =
         typeof orderData.pushToken === "string"
@@ -591,7 +809,6 @@ router.patch(
       }
 
       const orderRef = db.collection("orders").doc(id);
-
       const orderSnapshot = await orderRef.get();
 
       if (!orderSnapshot.exists) {
@@ -621,12 +838,8 @@ router.patch(
       const updatedAt = new Date().toISOString();
 
       /* =====================================================
-         SI ERA EL ÚLTIMO PRODUCTO
-
-         La orden NO se elimina.
-
-         Se conserva en "orders" para mantener el historial,
-         pero pasa a cancelado y se guarda el motivo.
+         Si era el último producto,
+         la orden no se elimina.
       ===================================================== */
 
       if (updatedItems.length === 0) {
@@ -644,10 +857,6 @@ router.patch(
           updatedAt,
         });
 
-        /*
-         * Avisamos al cliente que su pedido
-         * fue cancelado.
-         */
         const pushToken =
           typeof orderData.pushToken === "string"
             ? orderData.pushToken
@@ -673,22 +882,22 @@ router.patch(
       }
 
       /* =====================================================
-         SI TODAVÍA QUEDAN PRODUCTOS
-
-         Recalculamos el total.
+         Si todavía quedan productos,
+         recalculamos el total.
       ===================================================== */
 
       const newTotal = updatedItems.reduce((sum: number, item: any) => {
         const unitPrice = Number(item?.unitPrice ?? 0);
-
         const quantity = Number(item?.quantity ?? 0);
 
         return sum + unitPrice * quantity;
       }, 0);
 
+      const finalTotal = Number(newTotal.toFixed(2));
+
       await orderRef.update({
         items: updatedItems,
-        total: Number(newTotal.toFixed(2)),
+        total: finalTotal,
         updatedAt,
       });
 
@@ -696,7 +905,7 @@ router.patch(
         id,
         ...orderData,
         items: updatedItems,
-        total: Number(newTotal.toFixed(2)),
+        total: finalTotal,
         status: orderData.status,
         updatedAt,
       });

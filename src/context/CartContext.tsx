@@ -15,8 +15,9 @@ import { Platform } from "react-native";
 import { MenuItem } from "../types/menu";
 
 import {
+  cancelOrder as apiCancelOrder,
   createOrder as apiCreateOrder,
-  getOrders,
+  getOrdersByClientId,
   OrderStatus,
 } from "../services/api";
 
@@ -25,6 +26,7 @@ import { registerForPushNotificationsAsync } from "../services/notifications";
 import { showAlert } from "../utils/crossPlatformConfirm";
 
 const ORDERS_STORAGE_KEY = "@cafeteria/orders";
+const CLIENT_ID_STORAGE_KEY = "@cafeteria/client_id";
 
 export type SelectedCustomization = {
   specId: string;
@@ -77,7 +79,10 @@ type CartContextType = {
 
   refreshOrders: () => Promise<void>;
 
+  cancelOrder: (orderId: string) => Promise<boolean>;
+
   totalItems: number;
+
   totalPrice: number;
 };
 
@@ -87,6 +92,11 @@ const MAX_QUANTITY = 3;
 
 const createCartItemId = () =>
   `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createClientId = () =>
+  `client-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 14)}-${Math.random().toString(36).slice(2, 14)}`;
 
 const createCustomizationKey = (customizations: SelectedCustomization[]) => {
   return customizations
@@ -99,20 +109,58 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [pushToken, setPushToken] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string | null>(null);
 
   const ordersRef = useRef<Order[]>(orders);
+  const clientIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     ordersRef.current = orders;
   }, [orders]);
 
-  /* =========================================================
-     REGISTRAR NOTIFICACIONES PUSH
+  // =========================================================
+  // IDENTIFICADOR PERSISTENTE DEL CLIENTE
+  // =========================================================
 
-     IMPORTANTE:
-     En web las notificaciones no deben bloquear el flujo
-     de creación del pedido.
-  ========================================================= */
+  useEffect(() => {
+    const loadClientId = async () => {
+      try {
+        const storedClientId = await AsyncStorage.getItem(
+          CLIENT_ID_STORAGE_KEY,
+        );
+
+        if (storedClientId?.trim()) {
+          clientIdRef.current = storedClientId;
+          setClientId(storedClientId);
+          return;
+        }
+
+        const newClientId = createClientId();
+
+        await AsyncStorage.setItem(CLIENT_ID_STORAGE_KEY, newClientId);
+
+        clientIdRef.current = newClientId;
+        setClientId(newClientId);
+      } catch (error) {
+        console.error("Error recuperando identificador del cliente:", error);
+
+        // Si AsyncStorage falla, usamos un identificador temporal
+        // para que la aplicación pueda continuar.
+        const temporaryClientId = createClientId();
+
+        clientIdRef.current = temporaryClientId;
+        setClientId(temporaryClientId);
+      }
+    };
+
+    void loadClientId();
+  }, []);
+
+  // =========================================================
+  // REGISTRAR NOTIFICACIONES PUSH
+  // En web las notificaciones no deben bloquear
+  // el flujo de creación del pedido.
+  // =========================================================
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -134,25 +182,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
     void registerNotifications();
   }, []);
 
-  /* =========================================================
-     RECUPERAR PEDIDOS GUARDADOS LOCALMENTE
-  ========================================================= */
+  // =========================================================
+  // RECUPERAR PEDIDOS GUARDADOS LOCALMENTE
+  // AsyncStorage funciona únicamente como caché.
+  // El backend será la fuente de verdad.
+  // =========================================================
 
   useEffect(() => {
-    (async () => {
+    const loadStoredOrders = async () => {
       try {
         const stored = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
 
-        if (stored) {
-          const parsedOrders: Order[] = JSON.parse(stored);
-
-          setOrders(parsedOrders);
-          ordersRef.current = parsedOrders;
+        if (!stored) {
+          return;
         }
+
+        const parsedOrders: Order[] = JSON.parse(stored);
+
+        if (!Array.isArray(parsedOrders)) {
+          return;
+        }
+
+        setOrders(parsedOrders);
+        ordersRef.current = parsedOrders;
       } catch (error) {
         console.error("Error cargando pedidos guardados:", error);
       }
-    })();
+    };
+
+    void loadStoredOrders();
   }, []);
 
   const persistOrders = async (nextOrders: Order[]) => {
@@ -166,25 +224,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /* =========================================================
-     AGREGAR PRODUCTO AL CARRITO
-  ========================================================= */
+  // =========================================================
+  // AGREGAR PRODUCTO AL CARRITO
+  // =========================================================
 
   const addToCart = (
     product: MenuItem,
     selectedOptions: Record<string, string> = {},
   ) => {
-    /*
-     * Si el producto completo está agotado,
-     * nunca debe agregarse al carrito.
-     */
-
+    // Si el producto completo está agotado,
+    // nunca debe agregarse al carrito.
     if (product.available === false) {
       showAlert(
         "Producto no disponible",
         `${product.name} no está disponible en este momento.`,
       );
-
       return;
     }
 
@@ -192,64 +246,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const specs = Array.isArray(product.specs) ? product.specs : [];
 
-    /*
-     * Revisamos cada especificación.
-     */
-
+    // Revisamos cada especificación.
     for (const spec of specs) {
       if (!spec || !Array.isArray(spec.options) || spec.options.length === 0) {
         continue;
       }
 
-      /*
-       * Una opción está disponible si:
-       * - available === true
-       * - o no tiene el campo available.
-       */
-
+      // Una opción está disponible si:
+      // - available === true
+      // - o no tiene el campo available.
       const availableOptions = spec.options.filter(
         (option) => option && option.available !== false,
       );
 
-      /*
-       * Si ninguna opción está disponible,
-       * no podemos completar el producto.
-       */
-
+      // Si ninguna opción está disponible,
+      // no podemos completar el producto.
       if (availableOptions.length === 0) {
         showAlert(
           "Opción no disponible",
           `No hay opciones disponibles para "${spec.label}" en ${product.name}.`,
         );
-
         return;
       }
 
       const selectedOptionId = selectedOptions[spec.id];
 
-      /*
-       * Primero intentamos utilizar exactamente
-       * la opción seleccionada por el cliente.
-       */
-
+      // Primero intentamos utilizar exactamente
+      // la opción seleccionada por el cliente.
       let selectedOption = availableOptions.find(
         (option) => option.id === selectedOptionId,
       );
 
-      /*
-       * Si no existe una selección válida,
-       * buscamos el default disponible.
-       */
-
+      // Si no existe una selección válida,
+      // buscamos el default disponible.
       if (!selectedOption) {
         selectedOption = availableOptions.find((option) => option.isDefault);
       }
 
-      /*
-       * Como último recurso usamos la primera
-       * opción disponible.
-       */
-
+      // Como último recurso usamos la primera
+      // opción disponible.
       if (!selectedOption) {
         selectedOption = availableOptions[0];
       }
@@ -290,11 +325,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return existingKey === newCustomizationKey;
       });
 
-      /*
-       * Si ya existe el mismo producto con las
-       * mismas personalizaciones, aumentamos cantidad.
-       */
-
+      // Si ya existe el mismo producto con las
+      // mismas personalizaciones, aumentamos cantidad.
       if (existingItemIndex !== -1) {
         const existingItem = currentItems[existingItemIndex];
 
@@ -314,10 +346,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      /*
-       * Producto nuevo en el carrito.
-       */
-
+      // Producto nuevo en el carrito.
       const newCartItem: CartItem = {
         id: createCartItemId(),
         product,
@@ -330,9 +359,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  /* =========================================================
-     ELIMINAR PRODUCTO DEL CARRITO
-  ========================================================= */
+  // =========================================================
+  // ELIMINAR PRODUCTO DEL CARRITO
+  // =========================================================
 
   const removeFromCart = (cartItemId: string) => {
     setCartItems((currentItems) =>
@@ -340,9 +369,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  /* =========================================================
-     AUMENTAR CANTIDAD
-  ========================================================= */
+  // =========================================================
+  // AUMENTAR CANTIDAD
+  // =========================================================
 
   const increaseQuantity = (cartItemId: string) => {
     setCartItems((currentItems) =>
@@ -365,9 +394,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  /* =========================================================
-     DISMINUIR CANTIDAD
-  ========================================================= */
+  // =========================================================
+  // DISMINUIR CANTIDAD
+  // =========================================================
 
   const decreaseQuantity = (cartItemId: string) => {
     setCartItems((currentItems) =>
@@ -384,17 +413,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  /* =========================================================
-     LIMPIAR CARRITO
-  ========================================================= */
+  // =========================================================
+  // LIMPIAR CARRITO
+  // =========================================================
 
   const clearCart = () => {
     setCartItems([]);
   };
 
-  /* =========================================================
-     CREAR PEDIDO
-  ========================================================= */
+  // =========================================================
+  // CREAR PEDIDO
+  // =========================================================
 
   const createOrder = async (studentName: string): Promise<Order | null> => {
     if (cartItems.length === 0) {
@@ -415,13 +444,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    /*
-     * Validación final del carrito.
-     *
-     * Esto evita enviar productos u opciones
-     * que hayan quedado agotados.
-     */
-
+    // Validación final del carrito.
     for (const cartItem of cartItems) {
       if (cartItem.product.available === false) {
         showAlert(
@@ -457,25 +480,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      /*
-       * En web NO intentamos registrar push antes
-       * de enviar el pedido.
-       *
-       * Esto evita que el botón se quede en
-       * "Enviando..." esperando permisos o APIs
-       * de notificaciones que no funcionan igual
-       * en navegador.
-       */
+      // Nos aseguramos de tener clientId antes de enviar el pedido.
+      let currentClientId = clientIdRef.current;
 
+      if (!currentClientId) {
+        try {
+          const storedClientId = await AsyncStorage.getItem(
+            CLIENT_ID_STORAGE_KEY,
+          );
+
+          if (storedClientId?.trim()) {
+            currentClientId = storedClientId;
+          } else {
+            currentClientId = createClientId();
+
+            await AsyncStorage.setItem(CLIENT_ID_STORAGE_KEY, currentClientId);
+          }
+
+          clientIdRef.current = currentClientId;
+          setClientId(currentClientId);
+        } catch (clientIdError) {
+          console.error("Error preparando clientId:", clientIdError);
+
+          showAlert(
+            "No se pudo identificar el dispositivo",
+            "Cierra y vuelve a abrir la aplicación e intenta nuevamente.",
+          );
+
+          return null;
+        }
+      }
+
+      // En web NO intentamos registrar push antes
+      // de enviar el pedido.
       let currentPushToken = Platform.OS === "web" ? null : pushToken;
 
-      /*
-       * En móvil, si todavía no tenemos token,
-       * intentamos obtenerlo.
-       *
-       * Si falla, el pedido continúa igualmente.
-       */
-
+      // En móvil, si todavía no tenemos token,
+      // intentamos obtenerlo.
       if (Platform.OS !== "web" && !currentPushToken) {
         try {
           currentPushToken = await registerForPushNotificationsAsync();
@@ -488,35 +529,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      /*
-       * EL PEDIDO SE ENVÍA AL SERVIDOR.
-       */
-
+      // EL PEDIDO SE ENVÍA AL SERVIDOR.
+      // Incluye clientId para poder recuperar posteriormente
+      // únicamente los pedidos de este cliente.
       const backendOrder = await apiCreateOrder({
         items: cartItems,
         total: totalPrice,
         studentName: studentName.trim(),
+        clientId: currentClientId,
         pushToken: currentPushToken ?? undefined,
       });
 
       const order: Order = {
         id: backendOrder.id,
-        items: cartItems,
-        total: totalPrice,
+
+        items: Array.isArray(backendOrder.items)
+          ? backendOrder.items
+          : cartItems,
+
+        total:
+          typeof backendOrder.total === "number"
+            ? backendOrder.total
+            : totalPrice,
+
         status: backendOrder.status,
+
         createdAt: backendOrder.createdAt,
+
         updatedAt: backendOrder.updatedAt,
-        studentName: studentName.trim(),
+
+        studentName: backendOrder.studentName ?? studentName.trim(),
+
         authCode: String(backendOrder.authCode ?? ""),
+
         cancellationReason: backendOrder.cancellationReason,
+
         cancelledAt: backendOrder.cancelledAt,
+
         notice: backendOrder.notice,
       };
 
-      const nextOrders = [order, ...ordersRef.current];
+      const nextOrders = [
+        order,
+
+        ...ordersRef.current.filter(
+          (existingOrder) => existingOrder.id !== order.id,
+        ),
+      ];
 
       setOrders(nextOrders);
-
       ordersRef.current = nextOrders;
 
       await persistOrders(nextOrders);
@@ -536,87 +597,164 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /* =========================================================
-     ACTUALIZAR PEDIDOS
-  ========================================================= */
+  // =========================================================
+  // ACTUALIZAR PEDIDOS
+  //
+  // IMPORTANTE:
+  // Ya no usamos GET /orders.
+  //
+  // El cliente consulta únicamente:
+  // GET /orders/client/:clientId
+  // =========================================================
 
   const refreshOrders = async () => {
-    const currentOrders = ordersRef.current;
-
-    if (currentOrders.length === 0) {
-      return;
-    }
-
     try {
-      const backendOrders = await getOrders();
+      let currentClientId = clientIdRef.current;
 
-      /*
-       * Mapa de pedidos actuales del servidor.
-       */
+      // Si el clientId todavía no llegó al estado,
+      // lo recuperamos directamente de AsyncStorage.
+      if (!currentClientId) {
+        const storedClientId = await AsyncStorage.getItem(
+          CLIENT_ID_STORAGE_KEY,
+        );
 
-      const backendOrdersMap = new Map(
-        backendOrders.map((order) => [order.id, order]),
-      );
+        if (storedClientId?.trim()) {
+          currentClientId = storedClientId;
+        } else {
+          currentClientId = createClientId();
 
-      const updated = currentOrders.map((order) => {
-        const backendOrder = backendOrdersMap.get(order.id);
-
-        /*
-         * Si el pedido local ya no existe
-         * en Firestore, lo conservamos.
-         */
-
-        if (!backendOrder) {
-          return order;
+          await AsyncStorage.setItem(CLIENT_ID_STORAGE_KEY, currentClientId);
         }
 
-        /*
-         * Sincronizamos los datos importantes.
-         */
+        clientIdRef.current = currentClientId;
+        setClientId(currentClientId);
+      }
 
-        return {
-          ...order,
+      // El backend es la fuente de verdad.
+      // Siempre hacemos la consulta aunque orders esté vacío.
+      const backendOrders = await getOrdersByClientId(currentClientId);
 
-          items: Array.isArray(backendOrder.items)
-            ? backendOrder.items
-            : order.items,
+      const updatedOrders: Order[] = backendOrders.map((backendOrder) => ({
+        id: backendOrder.id,
 
-          total:
-            typeof backendOrder.total === "number"
-              ? backendOrder.total
-              : order.total,
+        items: Array.isArray(backendOrder.items) ? backendOrder.items : [],
 
-          status: backendOrder.status ?? order.status,
+        total: typeof backendOrder.total === "number" ? backendOrder.total : 0,
 
-          authCode: String(backendOrder.authCode ?? order.authCode),
+        status: backendOrder.status,
 
-          studentName: backendOrder.studentName ?? order.studentName,
+        createdAt: backendOrder.createdAt,
 
-          createdAt: backendOrder.createdAt ?? order.createdAt,
+        updatedAt: backendOrder.updatedAt,
 
-          updatedAt: backendOrder.updatedAt ?? order.updatedAt,
+        authCode: String(backendOrder.authCode ?? ""),
 
-          cancellationReason: backendOrder.cancellationReason,
+        studentName: backendOrder.studentName ?? "",
 
-          cancelledAt: backendOrder.cancelledAt,
+        cancellationReason: backendOrder.cancellationReason,
 
-          notice: backendOrder.notice,
-        };
-      });
+        cancelledAt: backendOrder.cancelledAt,
 
-      setOrders(updated);
+        notice: backendOrder.notice,
+      }));
 
-      ordersRef.current = updated;
+      setOrders(updatedOrders);
+      ordersRef.current = updatedOrders;
 
-      await persistOrders(updated);
+      await persistOrders(updatedOrders);
     } catch (error) {
+      // Si falla el servidor, conservamos el último
+      // estado conocido localmente.
       console.error("Error actualizando pedidos:", error);
     }
   };
 
-  /* =========================================================
-     TOTALES DEL CARRITO
-  ========================================================= */
+  // =========================================================
+  // CANCELAR PEDIDO DEL CLIENTE
+  //
+  // El backend valida:
+  // 1. Que el pedido exista.
+  // 2. Que pertenezca al clientId.
+  // 3. Que esté en pendiente o preparando.
+  // =========================================================
+
+  const cancelOrder = async (orderId: string): Promise<boolean> => {
+    try {
+      let currentClientId = clientIdRef.current;
+
+      // Nos aseguramos de tener el clientId.
+      if (!currentClientId) {
+        const storedClientId = await AsyncStorage.getItem(
+          CLIENT_ID_STORAGE_KEY,
+        );
+
+        if (storedClientId?.trim()) {
+          currentClientId = storedClientId;
+        } else {
+          currentClientId = createClientId();
+
+          await AsyncStorage.setItem(CLIENT_ID_STORAGE_KEY, currentClientId);
+        }
+
+        clientIdRef.current = currentClientId;
+        setClientId(currentClientId);
+      }
+
+      // El backend verifica que el pedido pertenezca
+      // a este cliente y que todavía pueda cancelarse.
+      const backendOrder = await apiCancelOrder(orderId, currentClientId);
+
+      const updatedOrder: Order = {
+        id: backendOrder.id,
+
+        items: Array.isArray(backendOrder.items) ? backendOrder.items : [],
+
+        total: typeof backendOrder.total === "number" ? backendOrder.total : 0,
+
+        status: backendOrder.status,
+
+        createdAt: backendOrder.createdAt,
+
+        updatedAt: backendOrder.updatedAt,
+
+        authCode: String(backendOrder.authCode ?? ""),
+
+        studentName: backendOrder.studentName ?? "",
+
+        cancellationReason: backendOrder.cancellationReason,
+
+        cancelledAt: backendOrder.cancelledAt,
+
+        notice: backendOrder.notice,
+      };
+
+      const nextOrders = ordersRef.current.map((existingOrder) =>
+        existingOrder.id === updatedOrder.id ? updatedOrder : existingOrder,
+      );
+
+      setOrders(nextOrders);
+      ordersRef.current = nextOrders;
+
+      await persistOrders(nextOrders);
+
+      return true;
+    } catch (error) {
+      console.error("Error cancelando pedido:", error);
+
+      showAlert(
+        "No se pudo cancelar",
+        error instanceof Error
+          ? error.message
+          : "No se pudo cancelar el pedido. Intenta nuevamente.",
+      );
+
+      return false;
+    }
+  };
+
+  // =========================================================
+  // TOTALES DEL CARRITO
+  // =========================================================
 
   const totalItems = useMemo(
     () => cartItems.reduce((total, item) => total + item.quantity, 0),
@@ -632,21 +770,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartItems],
   );
 
-  /* =========================================================
-     CONTEXTO
-  ========================================================= */
+  // =========================================================
+  // CONTEXTO
+  // =========================================================
 
   const value: CartContextType = {
     cartItems,
     orders,
+
     addToCart,
+
     removeFromCart,
+
     increaseQuantity,
+
     decreaseQuantity,
+
     clearCart,
+
     createOrder,
+
     refreshOrders,
+
+    cancelOrder,
+
     totalItems,
+
     totalPrice,
   };
 

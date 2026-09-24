@@ -1,6 +1,9 @@
 import * as ImagePicker from "expo-image-picker";
+
 import { useRouter } from "expo-router";
+
 import { useEffect, useRef, useState } from "react";
+
 import {
   Dimensions,
   FlatList,
@@ -13,16 +16,20 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminLoginModal from "@/components/admin/AdminLoginModal";
+
 import {
   menuRadius,
   menuSpacing,
   menuTypography,
   WEB_MAX_WIDTH,
 } from "@/constants/menuTheme";
+
 import { useAdmin } from "@/context/AdminContext";
+
 import {
   deletePromotion,
   getPromotion,
@@ -30,13 +37,14 @@ import {
   uploadPromoImage,
   type Promotion,
 } from "@/services/api";
+
 import { confirmAction, showAlert } from "@/utils/crossPlatformConfirm";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const IS_WEB = Platform.OS === "web";
 
-/*
+/**
  * En web usamos WEB_MAX_WIDTH para que la portada
  * no se haga demasiado grande en monitores.
  */
@@ -55,6 +63,12 @@ const SLIDE_HEIGHT = IS_WEB
   : Math.min(SLIDE_WIDTH * 1.45, 560);
 
 const SLIDE_INTERVAL_MS = 4000;
+
+/**
+ * Cada cuánto tiempo se consulta el backend para comprobar
+ * si la promoción cambió.
+ */
+const PROMOTION_REFRESH_MS = 5000;
 
 function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -98,7 +112,7 @@ function PromoCarousel({ promotion }: { promotion: Promotion | null }) {
         >
           <Text style={styles.emptyPromoEmoji}>☕</Text>
 
-          <Text style={styles.emptyPromoTitle}>Bienvenidos a Mas Café</Text>
+          <Text style={styles.emptyPromoTitle}>Bienvenidos a Más Café</Text>
 
           <Text style={styles.emptyPromoSubtitle}>
             Consulta nuestras promociones próximamente.
@@ -172,23 +186,44 @@ export default function HomeScreen() {
   const { isAdmin, isStoreOpen, setIsStoreOpen, logout } = useAdmin();
 
   const [adminModalVisible, setAdminModalVisible] = useState(false);
+
   const [promotion, setPromotion] = useState<Promotion | null>(null);
+
   const [isSavingPromotion, setIsSavingPromotion] = useState(false);
 
-  // Doble toque sobre "Mas Café" para abrir administración.
+  // Doble toque sobre "Más Café" para abrir administración.
   const lastPressTimeRef = useRef(0);
 
-  useEffect(() => {
-    const loadPromotion = async () => {
-      try {
-        const data = await getPromotion();
-        setPromotion(data);
-      } catch (error) {
-        console.error("Error cargando promoción:", error);
-      }
-    };
+  /**
+   * Carga la promoción actual desde el backend.
+   */
+  const loadPromotion = async () => {
+    try {
+      const data = await getPromotion();
+      setPromotion(data);
+    } catch (error) {
+      console.error("Error cargando promoción:", error);
+    }
+  };
 
+  /**
+   * Carga inicial + sincronización periódica.
+   *
+   * Esto permite que los clientes detecten cuando el administrador:
+   * - publica una promoción
+   * - cambia una promoción
+   * - elimina una promoción
+   */
+  useEffect(() => {
     void loadPromotion();
+
+    const interval = setInterval(() => {
+      void loadPromotion();
+    }, PROMOTION_REFRESH_MS);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const handleAdminSecretTrigger = () => {
