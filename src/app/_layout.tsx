@@ -1,7 +1,6 @@
+import AppTabs from "@/components/app-tabs";
 import { DefaultTheme, ThemeProvider } from "expo-router";
 import { useEffect } from "react";
-
-import AppTabs from "@/components/app-tabs";
 
 import { AdminProvider } from "../context/AdminContext";
 import { CartProvider } from "../context/CartContext";
@@ -15,7 +14,6 @@ export default function RootLayout() {
 
     void registerNotifications();
   }, []);
-
   return (
     <AdminProvider>
       <CartProvider>
